@@ -35,10 +35,10 @@ swarm-ctl backup restore backup-20260223-030000
 
 Docker Swarm sử dụng cơ chế Raft consensus. Nếu bạn chỉ có 1 Manager Node và server đó chết (cháy ổ cứng, mất kết nối không thể khôi phục), bạn sẽ phải khởi tạo lại Cluster từ đầu:
 
-1. Trỏ DNS Domain (ví dụ: `softty.net`) về IP của Server Master mới.
+1. Trỏ DNS Domain (ví dụ: `company.com`) về IP của Server Master mới.
 2. Từ máy chủ chứa source `swarm-ctl`, chạy lại lệnh:
    ```bash
-   swarm-ctl cluster init --master <IP_MOI> --domain softty.net ...
+   swarm-ctl cluster init --master <IP_MOI> --domain company.com ...
    ```
 3. Upload lại thư mục `/opt/data/backups` từ máy cá nhân lên server mới tại `/opt/data/backups/`.
 4. Restore lại bản backup như hướng dẫn phần 2.

@@ -29,7 +29,7 @@
 
 ```bash
 # 1. Khởi tạo Kẻ Gác Cổng (Traefik Router + Portainer)
-swarm-ctl cluster init --master 10.0.0.1 --key ~/.ssh/id_rsa --domain softty.net
+swarm-ctl cluster init --master 10.0.0.1 --key ~/.ssh/id_rsa --domain company.com
 
 # 2. Triển khai Ứng dụng Bất Kỳ thông qua App Bundle (Thư mục YML + Secrets)
 swarm-ctl app deploy ./my-mariadb-bundle --name mariadb_prod
