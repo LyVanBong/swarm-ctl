@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/LyVanBong/swarm-ctl/internal/audit"
 	"github.com/spf13/cobra"
 )
 
@@ -32,6 +33,12 @@ Documentation: https://github.com/LyVanBong/swarm-ctl
 `,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
+		},
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// Ghi log hành động kiểm toán ngoại trừ khi user chạy `help`
+			if len(os.Args) > 1 {
+				audit.Log(os.Args[1:])
+			}
 		},
 	}
 )

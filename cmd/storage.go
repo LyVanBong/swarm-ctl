@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/LyVanBong/swarm-ctl/internal/ansible"
 	"github.com/LyVanBong/swarm-ctl/internal/config"
 	"github.com/LyVanBong/swarm-ctl/internal/ssh"
 	"github.com/LyVanBong/swarm-ctl/internal/ui"
@@ -150,9 +151,72 @@ Xem thêm: https://min.io/docs/minio/linux/operations/install-deploy-manage/expa
 		return nil
 	},
 }
+// ──────────────────────────────────────────────
+// swarm-ctl storage init-glusterfs
+// ──────────────────────────────────────────────
+var glusterNodes []string
+
+var storageInitGlusterFSCmd = &cobra.Command{
+	Use:   "init-glusterfs",
+	Short: "Cài đặt GlusterFS Replicated Storage cho Cluster",
+	Long: `Khởi tạo hệ thống lưu trữ phân tán GlusterFS qua Ansible.
+
+Yêu cầu:
+- Tối thiểu 2 nodes (Khuyến nghị 3 để chống Split-brain)
+- Network LAN giữa các nodes đáng tin cậy.
+
+Ví dụ:
+  swarm-ctl storage init-glusterfs --nodes 10.0.0.1,10.0.0.2,10.0.0.3`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(glusterNodes) < 2 {
+			return fmt.Errorf("cần ít nhất 2 nodes (dùng cờ --nodes IP1,IP2)")
+		}
+
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		cluster, err := cfg.GetCurrentCluster()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(ui.Banner.Render("📂 SETUP GLUSTERFS REPLICATED STORAGE"))
+		fmt.Printf("  Nodes: %s\n\n", ui.Info.Render(strings.Join(glusterNodes, ", ")))
+
+		runner := ansible.NewRunner(getPlaybooksDir())
+		// Configure dynamic inventory for storage_nodes
+		for _, ip := range glusterNodes {
+			runner.WithHost(ip, cluster.SSHUser, cluster.SSHKey)
+		}
+		runner.WithVar("data_root", cluster.DataRoot)
+
+		fmt.Println("🚀 Bắt đầu cài đặt (Playbook)...")
+		if err := runner.RunPlaybook("glusterfs-setup.yml"); err != nil {
+			return fmt.Errorf("cài đặt GlusterFS thất bại: %v", err)
+		}
+
+		fmt.Println()
+		fmt.Println(ui.SuccessBox.Render(`
+✅ Cụm GlusterFS đã được thiết lập thành công!
+
+   Thư mục mount: ` + cluster.DataRoot + `/shared
+   (Dữ liệu ở thư mục này sẽ tự động đồng bộ chéo giữa các nodes)
+
+   Bây giờ bạn có thể trỏ Volume của Container vào thư mục này để đạt Zero-Downtime Data!
+`))
+		return nil
+	},
+}
+// ──────────────────────────────────────────────
+
 
 func init() {
+	storageInitGlusterFSCmd.Flags().StringSliceVarP(&glusterNodes, "nodes", "n", []string{}, "Danh sách IP các nodes lưu trữ (Cách nhau dấu phẩy)")
+	storageInitGlusterFSCmd.MarkFlagRequired("nodes")
+
 	storageCmd.AddCommand(storageStatusCmd)
 	storageCmd.AddCommand(storageCreateBucketCmd)
 	storageCmd.AddCommand(storageExpandCmd)
+	storageCmd.AddCommand(storageInitGlusterFSCmd)
 }
