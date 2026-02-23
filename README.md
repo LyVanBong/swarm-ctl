@@ -47,9 +47,9 @@ swarm-ctl dashboard
 🚨 **ĐẶC BIỆT LƯU Ý:** BẠN KHÔNG CẦN (VÀ KHÔNG NÊN) TỰ CÀI DOCKER HAY DOCKER SWARM. Chỉ cần cấp mật khẩu Root để Tool đăng nhập cắm cờ vào, `swarm-ctl` sẽ tự động tải các gói Docker, tự động setup Mạng Ảo, tự chỉ định Leader hoàn toàn 100%. Mọi thứ cứ để công cụ tự lo!
 
 ### 1. Master/Manager Node (Khuyên dùng tối thiểu 1 máy)
-Máy chứa Database, Monitoring và điều khiển Swarm.
+Máy chứa số liệu cột lõi và điều khiển Swarm.
 - **CPU:** Tối thiểu 2 vCores (Khuyến nghị 4 vCores cho production).
-- **RAM:** Tối thiểu 4GB (Khuyến nghị 8GB+ để chạy đủ MinIO, MariaDB, Prometheus).
+- **RAM:** Tối thiểu 4GB (Khuyến nghị 8GB+ cho production).
 - **Disk:** Tối thiểu 50GB SSD/NVMe.
 
 ### 2. Worker Nodes (Tuỳ chọn ráp sau)
@@ -116,14 +116,12 @@ Tool phân chia Cluster thành **3 Tier (3 Lớp mạng)**. Ngay khi lệnh `clu
 ## ✨ Tính Năng Nổi Bật (Ecosystem)
 
 - 🔒 **Zero-Trust Connection:** Không mở cổng Docker Socket ra Internet. Tool hoàn toàn ra lệnh máy chủ thông qua kênh SSH mã hóa nội bộ.
-- 🛡️ **Auto-Firewall (UFW):** Khi kết nạp Server, Tool tự đóng sập toàn bộ các Port (Cổng) truy cập trái phép của Hacker, chỉ chừa khe hở duy nhất cho 2 dịch vụ cốt lõi Web & SSH giao tiếp.
-- ♻️ **Zero-Downtime Deploy:** Hỗ trợ tính năng `service update` (khởi chạy bản mới trước khi tắt bản cũ) hoặc `secret rotate` (đổi mật khẩu database mà API đang kết nối không chết).
-- 📂 **Distributed Storage (GlusterFS):** Hỗ trợ `storage init-glusterfs` để đồng bộ ổ đĩa giữa 3 con Worker/Master chống cháy nổ vật lý.
-- 🗄️ **Cứu Hộ Dữ Liệu:** Lệnh `backup create/restore` tự động zip toàn thư mục phân quyền và tạo SQL Export cứu sống Cluster phút mốt.
-- 📝 **Nhật ký Kiểm Toán (Audit Trail):** Mọi lệnh can thiệp thay đổi (`node remove`, `service add`) đều ghi nhật ký tên PC, Thời gian vào file local `/audit.log` và che giấu tham số nhạy cảm. 
-- 📊 **Giám Sát Toàn Cảnh (Real-tim Monitoring):** 
-   - **Giám sát Nhanh (Qua Terminal):** Gõ lệnh `swarm-ctl dashboard` để mở ngay Bảng điện tử Live TUI. Giao diện này nháy đèn liên tục thời gian thực (Real-time), báo động tức thời xem Node nào tịt ngòi, Service nào đang sập mà không cần dùng trình duyệt.
-   - **Giám sát Sâu (Qua Web - Tự động cài sẵn):** Khối công cụ Prometheus & Grafana được cài sẵn sẽ liên tục cắm cảm biến vắt kiệt metrics của Máy chủ thật (CPU vật lý, RAM ảo) cho tới máy chủ chứa (Từng Container đang cắn bao nhiêu IOPS). Tất cả dồn về 1 mối siêu chi tiết.
+- 🛡️ **Auto-Firewall (UFW):** Khi kết nạp Server, Tool tự đóng sập toàn bộ các Port truy cập trái phép của Hacker, chỉ chừa khe hở cho Web & SSH giao tiếp.
+- ♻️ **Zero-Downtime Deploy:** Hỗ trợ `service update` (khởi chạy bản mới trước khi tắt bản cũ) hoặc `secret rotate` (đổi mật khẩu không downtime).
+- ⚙️ **Config Management 23 Keys:** Lệnh `swarm-ctl config` quản lý toàn bộ cấu hình: Domain, SSL, Auth, Registry, Backup S3, Telegram Alert.
+- 🗄️ **Backup & Restore:** Lệnh `backup create/restore` tự động zip toàn thư mục phân quyền.
+- 📝 **Audit Trail:** Mọi lệnh can thiệp đều ghi nhật ký tên PC, thời gian vào file local `/audit.log`.
+- 📊 **Giám Sát Trực Tiếp (TUI):** Gõ `swarm-ctl dashboard` để mở Bảng điện tử Live trên Terminal, thời gian thực, không cần trình duyệt.
 
 ---
 
@@ -185,8 +183,6 @@ swarm-ctl
 │   ├── status
 │   ├── upgrade
 │   └── destroy  [--force]
-├── registry
-│   └── login    [--server SERVER] --user USER --pass PASS
 ├── node
 │   ├── add      --ip IP [--role worker|manager] [--pass PASSWORD]
 │   ├── remove   --ip IP [--force]
@@ -206,14 +202,19 @@ swarm-ctl
 │   ├── list
 │   ├── remove   NAME
 │   └── rotate   NAME NEW-VALUE
-├── storage
-│   ├── status
-│   ├── init-glusterfs --nodes IP1,IP2..
-│   └── expand   --node IP
+├── config
+│   ├── show                          # Xem toàn bộ cấu hình
+│   ├── keys                          # Liệt kê 23 config keys
+│   ├── set      KEY VALUE             # Cập nhật giá trị
+│   ├── reset    KEY                   # Đặt lại về mặc định
+│   ├── apply                          # Áp dụng lên server đang chạy
+│   ├── export   [FILE]                # Xuất ra YAML/JSON
+│   ├── import   FILE                  # Nhập từ file
+│   └── diff                           # So sánh local vs server
 ├── backup
 │   ├── create
 │   ├── restore  BACKUP-ID
-│   ├── list
+│   └── list
 ├── app
 │   └── deploy   THU_MUC_BUNDLE [--name SERVICE_NAME]
 ├── dashboard    (Live Terminal UI)
@@ -230,7 +231,9 @@ Tham khảo thêm các hướng dẫn cấu hình kỹ thuật sâu hơn tại t
 * [Khôi phục Thảm Họa (Disaster Recovery & Backup)](docs/runbooks/01-disaster-recovery.md) - Cứu hoả khi sập DB, sập toàn bộ Master.
 * [Quản lý Máy chủ (Node Management)](docs/runbooks/02-node-management.md) - Cách Add thêm máy ảo, cách cập nhật Kernel Linux an toàn.
 * [Cập nhật Dịch vụ (Service Updates)](docs/runbooks/03-service-updates.md) - Re-deploy, Rotate Mật khẩu không Downtime.
-* [Triển khai Thực chiến (End-to-end Tutorial)](docs/runbooks/04-end-to-end-tutorial.md) - ⭐️ BÀI TẬP VÍ DỤ: Cài đặt cụm 3 Máy, Phân tải Appwrite và Website!
+* [Triển khai Thực chiến (End-to-end Tutorial)](docs/runbooks/04-end-to-end-tutorial.md) - ⭐️ BÀI TẬP VÍ DỤ: Cài đặt cụm 3 Máy, Phân tải Backend API và Website!
+* [⚙️ Quản Lý Cấu Hình (Config Management)](docs/runbooks/05-config-management.md) - 23 Config Keys, Export/Import, Diff, SSL, Auth, Backup S3, Telegram Alert.
+* [📖 Bảng Tham Chiếu Lệnh (CLI Reference)](docs/runbooks/06-cli-reference.md) - Ví dụ cụ thể cho toàn bộ lệnh kèm output mẫu.
 * [Kiến trúc Mô Hình Cluster](docs/architecture.md)
 * [Lịch sử Cập Nhật (CHANGELOG)](CHANGELOG.md)
 
@@ -238,7 +241,7 @@ Tham khảo thêm các hướng dẫn cấu hình kỹ thuật sâu hơn tại t
 
 ## 🤝 Đóng góp Mã Nguồn (Contributing)
 
-Dự án là của Cộng đồng! Bạn có ý tưởng phát triển App mới vào Marketplace, hay Report lỗi, xin vui lòng xem [Hướng dẫn Đóng góp (CONTRIBUTING)](CONTRIBUTING.md). Cảm ơn vì đã giúp `swarm-ctl` trở nên tốt hơn!
+Dự án là của Cộng đồng! Bạn có ý tưởng phát triển tính năng mới, hay Report lỗi, xin vui lòng xem [Hướng dẫn Đóng góp (CONTRIBUTING)](CONTRIBUTING.md). Cảm ơn vì đã giúp `swarm-ctl` trở nên tốt hơn!
 
 ---
 

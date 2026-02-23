@@ -23,7 +23,7 @@ Cụm Swarm chia làm 3 lớp (Tiers) tương đương 3 nhóm Network và Serve
 │            [ LỚP APPLICATION ]               │
 │             Worker/Manager Nodes             │
 │                                              │
-│  Appwrite | Frontend Web | Backend API       │
+│  App Bundles | Frontend Web | Backend API     │
 │  (Các Services tự động Scale Replica)        │
 └─────────────────┬────────────────────────────┘
                   │ (app_internal overlay network)
