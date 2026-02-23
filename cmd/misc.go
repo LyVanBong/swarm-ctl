@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/spf13/cobra"
 	"github.com/LyVanBong/swarm-ctl/internal/config"
 	"github.com/LyVanBong/swarm-ctl/internal/ssh"
 	"github.com/LyVanBong/swarm-ctl/internal/ui"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/spf13/cobra"
 )
 
-const (
+var (
 	Version   = "1.0.0"
 	BuildDate = "2026-02-23"
 )
@@ -98,4 +98,3 @@ var dashboardCmd = &cobra.Command{
 		return err
 	},
 }
-
