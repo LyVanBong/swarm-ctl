@@ -28,6 +28,7 @@ var (
 	initDomain    string
 	initDataRoot  string
 	initClusterName string
+	initPass        string // Mật khẩu để chạy ssh-copy-id
 )
 
 var clusterInitCmd = &cobra.Command{
@@ -70,9 +71,24 @@ Ví dụ:
 
 		// ── Step 2: Check SSH connectivity ──
 		fmt.Println(ui.RenderStep(1, 6, "Kiểm tra kết nối SSH..."))
+		
+		// Tự động sao chép Khóa SSH nếu có truyền Mật khẩu
+		if initPass != "" {
+			fmt.Println("  Phát hiện cờ --pass, đang thực hiện sao chép SSH Key tự động... (sshpass)")
+			
+			// Kiểm tra và yêu cầu sshpass
+			_, err := exec.LookPath("sshpass")
+			if err != nil {
+				return fmt.Errorf("cần cài đặt 'sshpass' trên máy của bạn để dùng tính năng --pass. Vui lòng chạy: sudo apt install sshpass")
+			}
+			
+			sshCopyCmd := fmt.Sprintf("sshpass -p '%s' ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", initPass, initSSHKey, initSSHUser, initMasterIP)
+			exec.Command("sh", "-c", sshCopyCmd).Run()
+		}
+
 		if err := ssh.CheckConnectivity(initMasterIP, initSSHUser, initSSHKey); err != nil {
-			return fmt.Errorf("SSH connection thất bại: %w\n\n  Gợi ý: thử lệnh ssh -i %s %s@%s",
-				err, initSSHKey, initSSHUser, initMasterIP)
+			return fmt.Errorf("SSH connection thất bại: %w\n\n  Nguyên nhân: Khóa SSH chưa được cài trên máy chủ.\n  Gợi ý 1: Truyền cờ --pass \"MatKhauRoot\"\n  Gợi ý 2: Chạy lệnh thủ công: ssh-copy-id -i %s %s@%s\n  Gợi ý 3: ssh -i %s %s@%s",
+				err, initSSHKey, initSSHUser, initMasterIP, initSSHKey, initSSHUser, initMasterIP)
 		}
 		fmt.Println(ui.RenderSuccess("Kết nối SSH thành công"))
 		fmt.Println()
@@ -234,6 +250,7 @@ func init() {
 	clusterInitCmd.Flags().StringVarP(&initDomain, "domain", "d", "", "Domain chính của cluster (bắt buộc)")
 	clusterInitCmd.Flags().StringVar(&initDataRoot, "data-root", "/opt/data", "Thư mục lưu dữ liệu")
 	clusterInitCmd.Flags().StringVarP(&initClusterName, "name", "n", "production", "Tên cluster")
+	clusterInitCmd.Flags().StringVarP(&initPass, "pass", "p", "", "Mật khẩu máy chủ (Dùng để tự động Copy SSH Key một lần duy nhất)")
 
 	clusterInitCmd.MarkFlagRequired("master")
 	clusterInitCmd.MarkFlagRequired("domain")
