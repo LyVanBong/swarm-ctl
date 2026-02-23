@@ -15,8 +15,11 @@
   tasks:
 
     # ── 0. Fix Broken Systems before APT runs ────────────────────
-    - name: Remove old Docker repo configurations to prevent APT Signed-By conflict
-      command: rm -f /etc/apt/sources.list.d/archive_uri-https_download_docker_com_linux_ubuntu-noble.list /etc/apt/sources.list.d/docker.list
+    - name: Purge old Docker apt repositories to prevent APT Signed-By conflict
+      shell: |
+        rm -f /etc/apt/sources.list.d/*docker*.list
+        rm -f /etc/apt/sources.list.d/archive_uri-https_download_docker_com_linux*.list
+        sed -i '/download.docker.com/d' /etc/apt/sources.list
       ignore_errors: true
 
     # ── 1. System Prerequisites ──────────────────────────────
@@ -192,6 +195,7 @@
         - "{{ data_root }}/appwrite/builds"
         - "{{ data_root }}/appwrite/mariadb"
         - "{{ data_root }}/appwrite/redis"
+        - "{{ data_root }}/mariadb"
         - "{{ data_root }}/minio"
         - "{{ data_root }}/monitoring/prometheus"
         - "{{ data_root }}/monitoring/grafana"
