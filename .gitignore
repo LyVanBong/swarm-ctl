@@ -19,6 +19,8 @@ vendor/
 # Config (chứa thông tin nhạy cảm)
 .swarm-ctl/
 config.local.yml
+.env
+.env.*
 
 # IDE
 .vscode/
