@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
-	"github.com/LyVanBong/swarm-ctl/internal/catalog"
 	"github.com/LyVanBong/swarm-ctl/internal/config"
 	"github.com/LyVanBong/swarm-ctl/internal/ssh"
 	"github.com/LyVanBong/swarm-ctl/internal/ui"
@@ -15,65 +15,36 @@ import (
 
 var appCmd = &cobra.Command{
 	Use:   "app",
-	Short: "1-Click Apps (Marketplace/Catolog)",
-	Long:  `Cài đặt nhanh các mã nguồn mở thiết yếu (Services phổ biến) vào Swarm.`,
+	Short: "Quản lý Ứng dụng (App Bundle) trên Swarm",
+	Long:  `Triển khai và Cấu hình Ứng dụng từ Thư mục (Bundle) lên Cụm Docker Swarm.`,
 }
 
-var appListCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"ls"},
-	Short:   "Danh sách các ứng dụng có thể cài đặt 1 chạm",
-	Run: func(cmd *cobra.Command, args []string) {
-		apps := catalog.GetCatalog()
+var appName string
+var composeFiles []string
 
-		fmt.Println(ui.SectionHeader.Render(" MARKETPLACE (1-CLICK APPS) "))
-		fmt.Println()
-
-		for _, app := range apps {
-			fmt.Printf("📦 %s %s\n", ui.Bold.Render(app.ID), ui.Muted.Render("("+app.Name+")"))
-			fmt.Printf("   Chuyên mục : %s\n", ui.Info.Render(app.Category))
-			fmt.Printf("   Mô tả      : %s\n", app.Description)
-			fmt.Println()
-		}
-
-		fmt.Println(ui.RenderInfo("Để cài ứng dụng, chạy: swarm-ctl app install [APP_ID]"))
-	},
-}
-
-var appDomain string
-var appNode string
-
-var appInstallCmd = &cobra.Command{
-	Use:   "install [APP_ID]",
-	Short: "Triển khai (Deploy) một ứng dụng từ Catalog",
+var appDeployCmd = &cobra.Command{
+	Use:   "deploy [FOLDER_PATH]",
+	Short: "Triển khai một ứng dụng Bundle (có docker-compose.yml)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		appID := args[0]
-
-		// Tìm app trong List
-		var selected *catalog.App
-		for _, a := range catalog.GetCatalog() {
-			if a.ID == appID {
-				selected = &a
-				break
-			}
+		folderPath := args[0]
+		absPath, err := filepath.Abs(folderPath)
+		if err != nil {
+			return fmt.Errorf("đường dẫn không hợp lệ: %w", err)
 		}
 
-		if selected == nil {
-			return fmt.Errorf("không tìm thấy App ID '%s'. Dùng 'swarm-ctl app list' để xem", appID)
+		info, err := os.Stat(absPath)
+		if err != nil || !info.IsDir() {
+			return fmt.Errorf("đường dẫn '%s' không tồn tại hoặc không phải là thư mục", absPath)
 		}
 
-		domain := appDomain
-		if domain == "" {
-			fmt.Printf("Nhập tên miền (Domain) để gắn cho %s\n", ui.Bold.Render(selected.Name))
-			fmt.Print("👉 Domain (vd: n8n.congty.com): ")
-			fmt.Scanln(&domain)
-			domain = strings.TrimSpace(domain)
-			if domain == "" {
-				return fmt.Errorf("tên miền không được để trống")
-			}
+		// Xác định App Name
+		if appName == "" {
+			appName = filepath.Base(absPath)
+			appName = strings.ToLower(appName)
 		}
 
+		// Tải cấu hình cluster (Env)
 		cfg, err := config.Load()
 		if err != nil {
 			return err
@@ -83,64 +54,60 @@ var appInstallCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println(ui.Banner.Render(fmt.Sprintf("🚀 INSTALLING: %s", selected.Name)))
-		fmt.Printf("  Tên miền: %s\n\n", ui.Info.Render(domain))
+		fmt.Println(ui.Banner.Render(fmt.Sprintf("🚀 DEPLOYING APP BUNDLE: %s", appName)))
+		fmt.Printf("  Thư mục gốc: %s\n\n", ui.Info.Render(absPath))
 
-		// Render YAML
-		appCfg := catalog.AppConfig{
-			Domain: domain,
-			Node:   appNode,
+		// Kết nối SSH
+		fmt.Println(ui.RenderStep(1, 3, "Chuẩn bị nén Bundle (YML + Configs + Secrets)..."))
+		tarFile := fmt.Sprintf("/tmp/%s-bundle.tar.gz", appName)
+		tarCmd := exec.Command("tar", "-czf", tarFile, "-C", absPath, ".")
+		if err := tarCmd.Run(); err != nil {
+			return fmt.Errorf("lỗi nén thư mục bundle: %w", err)
 		}
-		yamlStr, err := catalog.GenerateYaml(appID, appCfg)
-		if err != nil {
-			return fmt.Errorf("lỗi sinh cấu hình compose: %w", err)
-		}
+		defer os.Remove(tarFile)
 
-		// Tạo file tạm để pipe qua SSH
-		tmpFile, err := ioutil.TempFile("", appID+"-*.yml")
-		if err != nil {
-			return err
-		}
-		defer os.Remove(tmpFile.Name())
-
-		if _, err := tmpFile.WriteString(yamlStr); err != nil {
-			return err
-		}
-		tmpFile.Close()
-
-		// Thực thi deploy
 		client := ssh.NewClient(cluster.MasterIP, cluster.SSHUser, cluster.SSHKey)
 		if err := client.Connect(); err != nil {
 			return err
 		}
 		defer client.Close()
 
-		fmt.Println(ui.RenderStep(1, 1, "Gửi cấu hình lên Cluster & Khởi chạy..."))
+		fmt.Println(ui.RenderStep(2, 3, "Bắn gói Bundle lên Server Master..."))
+		remoteDir := fmt.Sprintf("/opt/swarm-ctl-apps/%s", appName)
+		client.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
 
-		// Lấy code chuyển nội dung file lên Remote
-		composeContent, _ := ioutil.ReadFile(tmpFile.Name())
-		remoteDir := fmt.Sprintf("/opt/swarm-ctl-apps/%s", appID)
+		// Dùng SCP để copy thì phức tạp, trong CLI ta có thể pipe nội dung Tar qua SSH hoặc dùng lệnh scp
+		scpCmd := exec.Command("scp", "-o", "StrictHostKeyChecking=no", "-i", cluster.SSHKey, tarFile, fmt.Sprintf("%s@%s:%s/bundle.tar.gz", cluster.SSHUser, cluster.MasterIP, remoteDir))
+		if err := scpCmd.Run(); err != nil {
+			return fmt.Errorf("gửi file bundle thất bại: %v", err)
+		}
 
-		client.Run("mkdir -p " + remoteDir)
+		fmt.Println(ui.RenderStep(3, 3, "Triển khai Docker Stack Native..."))
+		
+		envInjection := fmt.Sprintf("export DATA_ROOT='%s' && export DOMAIN='%s' && ", cluster.DataRoot, cluster.Domain)
 
-		output, err := client.Run(fmt.Sprintf(
-			"printf '%%s' '%s' > %s/docker-compose.yml && docker stack deploy --with-registry-auth -c %s/docker-compose.yml %s",
-			strings.ReplaceAll(string(composeContent), "'", "'\\''"),
-			remoteDir, remoteDir, appID))
+		composeArgs := "-c docker-compose.yml"
+		for _, f := range composeFiles {
+			composeArgs += fmt.Sprintf(" -c %s", f)
+		}
 
+		deployScript := fmt.Sprintf(`cd %s && tar -xzf bundle.tar.gz && rm bundle.tar.gz && %s docker stack deploy --with-registry-auth %s %s`,
+			remoteDir, envInjection, composeArgs, appName)
+
+		output, err := client.Run(deployScript)
 		if err != nil {
-			return fmt.Errorf("triển khai stack thất bại: %w\n%s", err, output)
+			return fmt.Errorf("triển khai stack thất bại: %w\nOutput: %s", err, output)
 		}
 
 		fmt.Println()
 		fmt.Println(ui.SuccessBox.Render(fmt.Sprintf(`
-✅ Ứng dụng %s đang được khởi chạy!
+✅ Ứng dụng '%s' đã được yêu cầu triển khai!
 
-   URL Dashboard: https://%s
-   
-   Hệ thống có thể mất vài phút để sinh chứng chỉ SSL và pull image.
-   Xem logs: swarm-ctl service logs %s_%s
-`, selected.Name, domain, appID, appID)))
+    Docker Swarm đang phân bổ tài nguyên.
+    Vui lòng kiểm tra logs để xem chi tiết khởi động:
+      swarm-ctl service logs %s_web
+      swarm-ctl service ls
+`, appName, appName)))
 
 		return nil
 	},
@@ -150,12 +117,12 @@ var appInstallCmd = &cobra.Command{
 // swarm-ctl app remove
 // ──────────────────────────────────────────────
 var appRemoveCmd = &cobra.Command{
-	Use:     "remove [APP_ID]",
+	Use:     "remove [APP_NAME]",
 	Aliases: []string{"rm"},
 	Short:   "Gỡ bỏ hoàn toàn một ứng dụng khỏi cụm Server",
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		appID := args[0]
+		appName := args[0]
 
 		cfg, err := config.Load()
 		if err != nil {
@@ -166,7 +133,7 @@ var appRemoveCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println(ui.Banner.Render(fmt.Sprintf("🗑️  REMOVING APP: %s", appID)))
+		fmt.Println(ui.Banner.Render(fmt.Sprintf("🗑️  REMOVING APP: %s", appName)))
 
 		client := ssh.NewClient(cluster.MasterIP, cluster.SSHUser, cluster.SSHKey)
 		if err := client.Connect(); err != nil {
@@ -174,31 +141,27 @@ var appRemoveCmd = &cobra.Command{
 		}
 		defer client.Close()
 
-		fmt.Printf("Đang yêu cầu hệ thống tháo rỡ Service '%s' trên toàn bộ các Server...\n", appID)
+		fmt.Printf("Đang yêu cầu hệ thống tháo rỡ Service '%s' trên toàn bộ các Server...\n", appName)
 
-		// Gỡ Stack Deploy của App
-		output, err := client.Run(fmt.Sprintf("docker stack rm %s", appID))
+		output, err := client.Run(fmt.Sprintf("docker stack rm %s", appName))
 		if err != nil {
-			return fmt.Errorf("không thể gỡ ứng dụng %s: %w\n%s", appID, err, output)
+			return fmt.Errorf("không thể gỡ ứng dụng %s: %w\n%s", appName, err, output)
 		}
 
-		// (Tùy chọn bổ sung): Dọn luôn rác Folder chứa file YML cấu hình
-		remoteDir := fmt.Sprintf("/opt/swarm-ctl-apps/%s", appID)
+		remoteDir := fmt.Sprintf("/opt/swarm-ctl-apps/%s", appName)
 		client.Run(fmt.Sprintf("rm -rf %s", remoteDir))
 
 		fmt.Println()
-		fmt.Println(ui.RenderSuccess(fmt.Sprintf("Toàn bộ Container của '%s' đã ngắt điện trơn tru!", appID)))
-		fmt.Println(ui.RenderWarning(fmt.Sprintf("Lưu ý: Dữ liệu (Database Volumes) của App vẫn được giữ lại tại ổ cứng máy chủ phòng trường hợp bạn cài lại. Xóa Volume thủ công nếu muốn xóa sạch: docker volume rm %s_...", appID)))
+		fmt.Println(ui.RenderSuccess(fmt.Sprintf("Toàn bộ Container của '%s' đã ngắt điện trơn tru!", appName)))
 
 		return nil
 	},
 }
 
 func init() {
-	appInstallCmd.Flags().StringVarP(&appDomain, "domain", "d", "", "Tên miền gắn cho ứng dụng")
-	appInstallCmd.Flags().StringVarP(&appNode, "node", "n", "", "Chỉ định Node (Hostname) cụ thể để chạy App")
+	appDeployCmd.Flags().StringVarP(&appName, "name", "n", "", "Tên Stack App (Vd: webapp, nginx)")
+	appDeployCmd.Flags().StringSliceVarP(&composeFiles, "compose-file", "c", []string{}, "Sử dụng các file compose override (Vd: -c docker-compose.prod.yml)")
 
-	appCmd.AddCommand(appListCmd)
-	appCmd.AddCommand(appInstallCmd)
+	appCmd.AddCommand(appDeployCmd)
 	appCmd.AddCommand(appRemoveCmd)
 }

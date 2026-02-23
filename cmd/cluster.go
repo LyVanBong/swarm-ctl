@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/LyVanBong/swarm-ctl/internal/ansible"
@@ -53,15 +55,35 @@ Ví dụ:
 		fmt.Println(ui.Banner.Render("🐳 SWARM-CTL — Cluster Init"))
 		fmt.Println()
 
-		// ── Step 1: Validate inputs ──
+		// ── Step 1: Validate inputs vs Interactive Prompt ──
+		reader := bufio.NewReader(os.Stdin)
+
 		if initMasterIP == "" {
-			return fmt.Errorf("--master IP là bắt buộc")
+			fmt.Print("👉 Nhập Master IP (vd: 1.2.3.4): ")
+			initMasterIP, _ = reader.ReadString('\n')
+			initMasterIP = strings.TrimSpace(initMasterIP)
+			if initMasterIP == "" {
+				return fmt.Errorf("--master IP là bắt buộc")
+			}
 		}
+
 		if initSSHKey == "" {
-			return fmt.Errorf("--key SSH key path là bắt buộc")
+			initSSHKey = "~/.ssh/id_rsa"
 		}
+
 		if initDomain == "" {
-			return fmt.Errorf("--domain là bắt buộc")
+			fmt.Print("👉 Nhập Domain gốc của cụm (vd: example.com): ")
+			initDomain, _ = reader.ReadString('\n')
+			initDomain = strings.TrimSpace(initDomain)
+			if initDomain == "" {
+				return fmt.Errorf("--domain là bắt buộc")
+			}
+		}
+
+		if initPass == "" {
+			fmt.Print("👉 Nhập Mật khẩu Root Server (để tự động cấu hình, để trống nếu đã có SSH Key): ")
+			initPass, _ = reader.ReadString('\n')
+			initPass = strings.TrimSpace(initPass)
 		}
 
 		// ── Step 1.5: Đảm bảo đã có Khóa SSH (Tự sinh nếu thiếu) ──
@@ -133,7 +155,7 @@ Ví dụ:
 		fmt.Println()
 
 		// ── Step 4: Run Ansible - Install Docker & Init Swarm ──
-		fmt.Println(ui.RenderStep(3, 6, "Cài đặt Docker và khởi tạo Swarm..."))
+		fmt.Println(ui.RenderStep(3, 5, "Cài đặt Docker và khởi tạo Swarm..."))
 		runner := ansible.NewRunner(ansible.GetPlaybooksDir()).
 			WithHost(initMasterIP, initSSHUser, initSSHKey).
 			WithVar("data_root", initDataRoot).
@@ -151,23 +173,15 @@ Ví dụ:
 		fmt.Println()
 
 		// ── Step 5: Deploy Tier 1 (Infrastructure) ──
-		fmt.Println(ui.RenderStep(4, 6, "Deploy Tier 1: Traefik + Portainer..."))
+		fmt.Println(ui.RenderStep(4, 5, "Deploy Tier 1: Traefik + Portainer..."))
 		if err := runner.RunPlaybook("deploy-tier1.yml"); err != nil {
 			return fmt.Errorf("deploy tier 1 thất bại: %w", err)
 		}
 		fmt.Println(ui.RenderSuccess("Traefik và Portainer đang chạy"))
 		fmt.Println()
 
-		// ── Step 6: Deploy Tier 2 (Platform) ──
-		fmt.Println(ui.RenderStep(5, 6, "Deploy Tier 2: MinIO + Database + Monitoring..."))
-		if err := runner.RunPlaybook("deploy-tier2.yml"); err != nil {
-			return fmt.Errorf("deploy tier 2 thất bại: %w", err)
-		}
-		fmt.Println(ui.RenderSuccess("Platform services đang chạy"))
-		fmt.Println()
-
-		// ── Step 7: Save config ──
-		fmt.Println(ui.RenderStep(6, 6, "Lưu cấu hình cluster..."))
+		// ── Step 6: Save config ──
+		fmt.Println(ui.RenderStep(5, 5, "Lưu cấu hình cluster..."))
 		cfg, _ := config.Load()
 		cfg.AddCluster(config.Cluster{
 			Name:      initClusterName,
@@ -190,16 +204,13 @@ Ví dụ:
 
   🌐 Traefik Dashboard : https://traefik.%s
   📊 Portainer         : https://portainer.%s
-  📈 Grafana           : https://grafana.%s
-  🗄️  MinIO Console    : https://minio.%s
 
 Tiếp theo:
   swarm-ctl node add --ip <worker-ip> --key %s --role worker
-  swarm-ctl service deploy appwrite
+  swarm-ctl app deploy <folder_app_path>
   swarm-ctl dashboard
 `,
-			initClusterName, initDomain, initDomain,
-			initDomain, initDomain, initSSHKey)))
+			initClusterName, initDomain, initDomain, initSSHKey)))
 
 		return nil
 	},
@@ -345,9 +356,7 @@ func init() {
 	clusterInitCmd.Flags().StringVarP(&initClusterName, "name", "n", "production", "Tên cluster")
 	clusterInitCmd.Flags().StringVarP(&initPass, "pass", "p", "", "Mật khẩu máy chủ (Dùng để tự động Copy SSH Key một lần duy nhất)")
 
-	clusterInitCmd.MarkFlagRequired("master")
-	clusterInitCmd.MarkFlagRequired("domain")
-
+	// Cho phép nhập tương tác, không yêu cầu bắt buộc cờ lệnh
 	// Đăng ký subcommands
 	clusterCmd.AddCommand(clusterInitCmd)
 	clusterCmd.AddCommand(clusterStatusCmd)
