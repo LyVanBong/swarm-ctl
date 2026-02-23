@@ -185,21 +185,6 @@
         - "{{ data_root }}"
         - "{{ data_root }}/traefik/certs"
         - "{{ data_root }}/portainer/data"
-        - "{{ data_root }}/appwrite/uploads"
-        - "{{ data_root }}/appwrite/imports"
-        - "{{ data_root }}/appwrite/cache"
-        - "{{ data_root }}/appwrite/config"
-        - "{{ data_root }}/appwrite/certificates"
-        - "{{ data_root }}/appwrite/functions"
-        - "{{ data_root }}/appwrite/sites"
-        - "{{ data_root }}/appwrite/builds"
-        - "{{ data_root }}/appwrite/mariadb"
-        - "{{ data_root }}/appwrite/redis"
-        - "{{ data_root }}/mariadb"
-        - "{{ data_root }}/minio"
-        - "{{ data_root }}/monitoring/prometheus"
-        - "{{ data_root }}/monitoring/grafana"
-        - "{{ data_root }}/monitoring/loki"
 
     # ── 6. Apply Manager Labels ──────────────────────────────
     - name: Get node ID
