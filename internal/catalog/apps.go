@@ -203,6 +203,78 @@ networks:
 `,
 		},
 		{
+			ID:          "appwrite",
+			Name:        "Appwrite",
+			Category:    "Backend (BaaS)",
+			Description: "Nền tảng Backend mã nguồn mở (Firebase Alternative) đầy đủ tính năng. Yêu cầu VPS tối thiểu 4GB RAM.",
+			Template: `version: "3.8"
+# LƯU Ý: Đây là bản rút gọn (Core API) để chạy ổn định trên Swarm 
+services:
+  mariadb:
+    image: mariadb:10.7
+    environment:
+      - MYSQL_ROOT_PASSWORD=appwrite_root
+      - MYSQL_DATABASE=appwrite
+      - MYSQL_USER=appwrite
+      - MYSQL_PASSWORD=appwrite_pass
+    volumes:
+      - appwrite-mariadb:/var/lib/mysql
+    networks:
+      - proxy_public
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  redis:
+    image: redis:7.0-alpine
+    volumes:
+      - appwrite-redis:/data
+    networks:
+      - proxy_public
+
+  app:
+    image: appwrite/appwrite:1.6.0
+    environment:
+      - _APP_ENV=production
+      - _APP_URL=https://{{ .Domain }}
+      - _APP_DB_HOST=mariadb
+      - _APP_DB_USER=appwrite
+      - _APP_DB_PASS=appwrite_pass
+      - _APP_DB_SCHEMA=appwrite
+      - _APP_REDIS_HOST=redis
+      - _APP_REDIS_PORT=6379
+      - _APP_OPTIONS_ABUSE=disabled
+      - _APP_OPTIONS_FORCE_HTTPS=enabled
+    volumes:
+      - appwrite-uploads:/storage/uploads
+      - appwrite-functions:/storage/functions
+    depends_on:
+      - mariadb
+      - redis
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.appwrite.rule=Host(` + "`" + `{{ .Domain }}` + "`" + `)"
+        - "traefik.http.routers.appwrite.entrypoints=https"
+        - "traefik.http.routers.appwrite.tls.certresolver=le"
+        - "traefik.http.services.appwrite.loadbalancer.server.port=80"
+        - "traefik.swarm.network=proxy_public"
+    networks:
+      - proxy_public
+
+volumes:
+  appwrite-mariadb:
+  appwrite-redis:
+  appwrite-uploads:
+  appwrite-functions:
+
+networks:
+  proxy_public:
+    external: true
+`,
+		},
+		{
 			ID:          "meilisearch",
 			Name:        "MeiliSearch",
 			Category:    "Search Engine",
