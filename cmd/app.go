@@ -49,7 +49,7 @@ var appInstallCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		appID := args[0]
-		
+
 		// Tìm app trong List
 		var selected *catalog.App
 		for _, a := range catalog.GetCatalog() {
@@ -116,15 +116,15 @@ var appInstallCmd = &cobra.Command{
 		defer client.Close()
 
 		fmt.Println(ui.RenderStep(1, 1, "Gửi cấu hình lên Cluster & Khởi chạy..."))
-		
+
 		// Lấy code chuyển nội dung file lên Remote
 		composeContent, _ := ioutil.ReadFile(tmpFile.Name())
 		remoteDir := fmt.Sprintf("/opt/swarm-ctl-apps/%s", appID)
-		
+
 		client.Run("mkdir -p " + remoteDir)
-		
+
 		output, err := client.Run(fmt.Sprintf(
-			"printf '%%s' '%s' > %s/docker-compose.yml && docker stack deploy -c %s/docker-compose.yml %s",
+			"printf '%%s' '%s' > %s/docker-compose.yml && docker stack deploy --with-registry-auth -c %s/docker-compose.yml %s",
 			strings.ReplaceAll(string(composeContent), "'", "'\\''"),
 			remoteDir, remoteDir, appID))
 
@@ -150,13 +150,13 @@ var appInstallCmd = &cobra.Command{
 // swarm-ctl app remove
 // ──────────────────────────────────────────────
 var appRemoveCmd = &cobra.Command{
-	Use:   "remove [APP_ID]",
+	Use:     "remove [APP_ID]",
 	Aliases: []string{"rm"},
-	Short: "Gỡ bỏ hoàn toàn một ứng dụng khỏi cụm Server",
-	Args:  cobra.ExactArgs(1),
+	Short:   "Gỡ bỏ hoàn toàn một ứng dụng khỏi cụm Server",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		appID := args[0]
-		
+
 		cfg, err := config.Load()
 		if err != nil {
 			return err
@@ -175,7 +175,7 @@ var appRemoveCmd = &cobra.Command{
 		defer client.Close()
 
 		fmt.Printf("Đang yêu cầu hệ thống tháo rỡ Service '%s' trên toàn bộ các Server...\n", appID)
-		
+
 		// Gỡ Stack Deploy của App
 		output, err := client.Run(fmt.Sprintf("docker stack rm %s", appID))
 		if err != nil {
@@ -197,7 +197,7 @@ var appRemoveCmd = &cobra.Command{
 func init() {
 	appInstallCmd.Flags().StringVarP(&appDomain, "domain", "d", "", "Tên miền gắn cho ứng dụng")
 	appInstallCmd.Flags().StringVarP(&appNode, "node", "n", "", "Chỉ định Node (Hostname) cụ thể để chạy App")
-	
+
 	appCmd.AddCommand(appListCmd)
 	appCmd.AddCommand(appInstallCmd)
 	appCmd.AddCommand(appRemoveCmd)
