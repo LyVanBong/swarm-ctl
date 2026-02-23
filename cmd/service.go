@@ -5,11 +5,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/LyVanBong/swarm-ctl/internal/config"
 	"github.com/LyVanBong/swarm-ctl/internal/ssh"
 	"github.com/LyVanBong/swarm-ctl/internal/template"
 	"github.com/LyVanBong/swarm-ctl/internal/ui"
+	"github.com/spf13/cobra"
 )
 
 var serviceCmd = &cobra.Command{
@@ -95,21 +95,21 @@ Ví dụ:
 		fmt.Println(ui.RenderStep(1, 3, "Generating service files..."))
 
 		svcTemplate := template.ServiceSpec{
-			Name:        svcAddName,
-			Image:       svcAddImage,
-			Domain:      svcAddDomain,
-			Port:        svcAddPort,
-			Replicas:    svcAddReplicas,
-			CPULimit:    svcAddCPU,
-			MemoryLimit: svcAddMemory,
-			Placement:   svcAddPlacement,
-			Middlewares: svcAddMiddleware,
-			Env:         parseKeyValueList(svcAddEnv),
-			Secrets:     svcAddSecret,
-			Volumes:     svcAddVolume,
-			Networks:    svcAddNetwork,
+			Name:          svcAddName,
+			Image:         svcAddImage,
+			Domain:        svcAddDomain,
+			Port:          svcAddPort,
+			Replicas:      svcAddReplicas,
+			CPULimit:      svcAddCPU,
+			MemoryLimit:   svcAddMemory,
+			Placement:     svcAddPlacement,
+			Middlewares:   svcAddMiddleware,
+			Env:           parseKeyValueList(svcAddEnv),
+			Secrets:       svcAddSecret,
+			Volumes:       svcAddVolume,
+			Networks:      svcAddNetwork,
 			RestartPolicy: svcAddRestart,
-			UpdateOrder: svcAddUpdateOrder,
+			UpdateOrder:   svcAddUpdateOrder,
 		}
 
 		// Tạo thư mục service
@@ -382,7 +382,7 @@ var serviceRemoveCmd = &cobra.Command{
 // swarm-ctl service update
 // ──────────────────────────────────────────────
 var (
-	svcUpdateImage string
+	svcUpdateImage    string
 	svcUpdateReplicas int
 )
 

@@ -151,6 +151,7 @@ Xem thêm: https://min.io/docs/minio/linux/operations/install-deploy-manage/expa
 		return nil
 	},
 }
+
 // ──────────────────────────────────────────────
 // swarm-ctl storage init-glusterfs
 // ──────────────────────────────────────────────
@@ -208,8 +209,8 @@ Ví dụ:
 		return nil
 	},
 }
-// ──────────────────────────────────────────────
 
+// ──────────────────────────────────────────────
 
 func init() {
 	storageInitGlusterFSCmd.Flags().StringSliceVarP(&glusterNodes, "nodes", "n", []string{}, "Danh sách IP các nodes lưu trữ (Cách nhau dấu phẩy)")

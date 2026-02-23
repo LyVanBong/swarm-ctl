@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/LyVanBong/swarm-ctl/internal/ansible"
 	"github.com/LyVanBong/swarm-ctl/internal/config"
 	"github.com/LyVanBong/swarm-ctl/internal/ssh"
 	"github.com/LyVanBong/swarm-ctl/internal/ui"
+	"github.com/spf13/cobra"
 )
 
 var clusterCmd = &cobra.Command{
@@ -24,11 +24,11 @@ var clusterCmd = &cobra.Command{
 // swarm-ctl cluster init
 // ──────────────────────────────────────────────
 var (
-	initMasterIP  string
-	initSSHKey    string
-	initSSHUser   string
-	initDomain    string
-	initDataRoot  string
+	initMasterIP    string
+	initSSHKey      string
+	initSSHUser     string
+	initDomain      string
+	initDataRoot    string
 	initClusterName string
 	initPass        string // Mật khẩu để chạy ssh-copy-id
 )
@@ -80,17 +80,17 @@ Ví dụ:
 
 		// ── Step 2: Check SSH connectivity ──
 		fmt.Println(ui.RenderStep(1, 6, "Kiểm tra kết nối SSH..."))
-		
+
 		// Tự động sao chép Khóa SSH nếu có truyền Mật khẩu
 		if initPass != "" {
 			fmt.Println("  Phát hiện cờ --pass, đang thực hiện sao chép SSH Key tự động... (sshpass)")
-			
+
 			// Kiểm tra và cài đặt sshpass nếu không có sẵn
 			_, err := exec.LookPath("sshpass")
 			if err != nil {
 				fmt.Println(ui.RenderWarning("Không tìm thấy lệnh 'sshpass'. Đang tự động cài đặt cho bạn..."))
 				installCmd := ""
-				
+
 				// Phán đoán HĐH
 				if _, err := exec.LookPath("apt-get"); err == nil {
 					installCmd = "sudo apt-get update && sudo apt-get install -y sshpass"
@@ -99,17 +99,17 @@ Ví dụ:
 				} else if _, err := exec.LookPath("brew"); err == nil {
 					installCmd = "brew install hudochenkov/sshpass/sshpass"
 				}
-				
+
 				if installCmd != "" {
 					exec.Command("sh", "-c", installCmd).Run()
 				}
-				
+
 				// Kiểm tra lại sau cài
 				if _, err := exec.LookPath("sshpass"); err != nil {
 					return fmt.Errorf("cần cài đặt thư viện 'sshpass' trên máy của bạn để dùng tính năng --pass. Vui lòng chạy thủ công: sudo apt install sshpass (hoặc tương đương tuỳ hệ điều hành)")
 				}
 			}
-			
+
 			sshCopyCmd := fmt.Sprintf("sshpass -p '%s' ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", initPass, initSSHKey, initSSHUser, initMasterIP)
 			exec.Command("sh", "-c", sshCopyCmd).Run()
 		}
@@ -353,7 +353,6 @@ func init() {
 	clusterCmd.AddCommand(clusterStatusCmd)
 	clusterCmd.AddCommand(clusterUpgradeCmd)
 	clusterCmd.AddCommand(clusterDestroyCmd)
-	
+
 	clusterDestroyCmd.Flags().BoolVarP(&clusterDestroyForce, "force", "f", false, "Đồng ý xóa dữ liệu ngay lập tức")
 }
-

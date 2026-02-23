@@ -43,7 +43,7 @@ Ví dụ:
 
 		content := string(data)
 		lines := strings.Split(strings.TrimSpace(content), "\n")
-		
+
 		if len(lines) == 0 {
 			fmt.Println("No logs found.")
 			return nil

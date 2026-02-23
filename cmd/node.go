@@ -24,12 +24,12 @@ var nodeCmd = &cobra.Command{
 // swarm-ctl node add
 // ──────────────────────────────────────────────
 var (
-	nodeAddIP      string
-	nodeAddKey     string
-	nodeAddUser    string
-	nodeAddRole    string
-	nodeAddLabel   []string
-	nodeAddPass    string // Password root
+	nodeAddIP    string
+	nodeAddKey   string
+	nodeAddUser  string
+	nodeAddRole  string
+	nodeAddLabel []string
+	nodeAddPass  string // Password root
 )
 
 var nodeAddCmd = &cobra.Command{
@@ -66,7 +66,7 @@ Ví dụ:
 		if keyPath == "" {
 			keyPath = cluster.SSHKey
 		}
-		
+
 		expandedKeyPath, err := ssh.EnsureSSHKeyExists(keyPath)
 		if err != nil {
 			return fmt.Errorf("lỗi kiểm tra SSH key: %w", err)
@@ -98,17 +98,17 @@ Ví dụ:
 
 		// ── Step 1: SSH Connectivity ──
 		fmt.Println(ui.RenderStep(1, totalSteps, steps[0]+"..."))
-		
+
 		// Tự động giải quyết nếu có --pass (Sao chép key sang tự động)
 		if nodeAddPass != "" {
 			fmt.Println("  Phát hiện cờ --pass, đang thực hiện sao chép SSH Key tự động... (sshpass)")
-			
+
 			// Kiểm tra và yêu cầu sshpass
 			_, err := exec.LookPath("sshpass")
 			if err != nil {
 				fmt.Println(ui.RenderWarning("Không tìm thấy lệnh 'sshpass'. Đang tự động cài đặt cho bạn..."))
 				installCmd := ""
-				
+
 				// Phán đoán HĐH
 				if _, err := exec.LookPath("apt-get"); err == nil {
 					installCmd = "sudo apt-get update && sudo apt-get install -y sshpass"
@@ -117,17 +117,17 @@ Ví dụ:
 				} else if _, err := exec.LookPath("brew"); err == nil {
 					installCmd = "brew install hudochenkov/sshpass/sshpass"
 				}
-				
+
 				if installCmd != "" {
 					exec.Command("sh", "-c", installCmd).Run()
 				}
-				
+
 				// Kiểm tra lại sau cài
 				if _, err := exec.LookPath("sshpass"); err != nil {
 					return fmt.Errorf("cần cài đặt thư viện 'sshpass' trên máy của bạn để dùng tính năng --pass. Vui lòng chạy thủ công: sudo apt install sshpass (hoặc tương đương tuỳ hệ điều hành)")
 				}
 			}
-			
+
 			sshCopyCmd := fmt.Sprintf("sshpass -p '%s' ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", nodeAddPass, keyPath, sshUser, nodeAddIP)
 			exec.Command("sh", "-c", sshCopyCmd).Run()
 		}
@@ -281,8 +281,8 @@ Ví dụ:
 // swarm-ctl node list
 // ──────────────────────────────────────────────
 var nodeListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "Xem danh sách tất cả nodes",
+	Use:     "list",
+	Short:   "Xem danh sách tất cả nodes",
 	Aliases: []string{"ls"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
