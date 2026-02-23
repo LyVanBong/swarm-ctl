@@ -166,6 +166,8 @@ swarm-ctl
 │   ├── status
 │   ├── upgrade
 │   └── destroy  [--force]
+├── registry
+│   └── login    [--server SERVER] --user USER --pass PASS
 ├── node
 │   ├── add      --ip IP [--role worker|manager] [--pass PASSWORD]
 │   ├── remove   --ip IP [--force]
