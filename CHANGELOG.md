@@ -9,6 +9,7 @@ Dự án tuân theo quy tắc Đánh số Phiên bản [Semantic Versioning](htt
 Phiên bản 1.0.0 đánh dấu sự hoàn thiện toàn bộ các tính năng cốt lõi bắt buộc, đáp ứng được tiêu chuẩn An toàn và Độ tin cậy trong môi trường doanh nghiệp.
 
 ### Thêm Mới (Added)
+- **[Marketplace]** Ra mắt tính năng `swarm-ctl app list` và `app install`. Tích hợp sẵn 4 mã nguồn mở cài đặt 1-chạm: n8n, NocoDB, Uptime-Kuma, Metabase.
 - **[Storage]** Hỗ trợ lệnh `storage init-glusterfs` cài đặt GlusterFS phân tán, sao lưu dữ liệu sang 3 máy chỉ với 1 lệnh Ansible.
 - **[Audit]** Tích hợp Logger kiểm toán tự động. Lệnh `swarm-ctl audit` truy vết lịch sử gõ lệnh ở cấp độ Local (Tự động che giấu mật khẩu).
 - **[Dashboard]** Tích hợp Terminal UI Live Dashboard bằng thư viện Bubbletea với đầy đủ màu sắc, tự động refresh, hiển thị tài nguyên thời gian thực.

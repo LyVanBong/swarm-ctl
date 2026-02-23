@@ -57,6 +57,7 @@ swarm-ctl service scale my-api=10
 - `node ssh` — SSH nhanh vào node
 
 ### 🚀 Service Management
+- `app install` — Cài đặt nhanh ứng dụng mẫu (n8n, nocodb, metabase...) *(v1.0)*
 - `service add` — Tạo service mới với wizard (tự generate compose + labels Traefik)
 - `service deploy` — Deploy từ services.yml
 - `service scale` — Scale replicas
@@ -165,6 +166,9 @@ swarm-ctl
 │   ├── create
 │   ├── restore  BACKUP-ID
 │   └── list
+├── app
+│   ├── list     (Marketplace)
+│   └── install  APP-ID [--domain DOMAIN]
 ├── dashboard
 └── version
 ```
