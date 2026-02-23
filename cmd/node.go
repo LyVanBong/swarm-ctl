@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/softtynet/swarm-ctl/internal/ansible"
-	"github.com/softtynet/swarm-ctl/internal/config"
-	"github.com/softtynet/swarm-ctl/internal/ssh"
-	"github.com/softtynet/swarm-ctl/internal/ui"
+	"github.com/LyVanBong/swarm-ctl/internal/ansible"
+	"github.com/LyVanBong/swarm-ctl/internal/config"
+	"github.com/LyVanBong/swarm-ctl/internal/ssh"
+	"github.com/LyVanBong/swarm-ctl/internal/ui"
 )
 
 var nodeCmd = &cobra.Command{

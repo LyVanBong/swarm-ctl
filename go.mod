@@ -1,4 +1,4 @@
-module github.com/softtynet/swarm-ctl
+module github.com/LyVanBong/swarm-ctl
 
 go 1.24.2
 

@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -112,12 +113,16 @@ func (c *Client) MkdirAll(path string) error {
 }
 
 // WriteFile ghi nội dung vào file trên remote host
+// Dùng base64 encoding để tránh escape issues
 func (c *Client) WriteFile(path, content string) error {
-	// Escape content cho shell
-	escaped := strings.ReplaceAll(content, "'", "'\"'\"'")
-	cmd := fmt.Sprintf("sudo bash -c 'cat > %s << '\''EOF'\''\\n%s\\nEOF'", path, escaped)
-	_, err := c.Run(cmd)
+	import64 := "echo '" + encodeBase64(content) + "' | base64 -d | sudo tee " + path + " > /dev/null"
+	_, err := c.Run(import64)
 	return err
+}
+
+// encodeBase64 encode string sang base64
+func encodeBase64(s string) string {
+	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
 // GetHostname lấy hostname của remote host

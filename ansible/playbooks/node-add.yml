@@ -1,0 +1,201 @@
+---
+# node-add.yml - Provision và thêm node mới vào Docker Swarm
+# Chạy bởi: swarm-ctl node add --ip X.X.X.X --role worker
+
+- name: "🐳 Provision new Swarm node"
+  hosts: nodes
+  become: true
+  gather_facts: true
+
+  vars:
+    data_root: "/opt/data"
+    node_role: "worker"
+    master_ip: ""
+    node_labels: ""
+
+  tasks:
+
+    # ── 1. Kiểm tra OS ───────────────────────────────────────
+    - name: Check supported OS
+      fail:
+        msg: "Chỉ hỗ trợ Ubuntu 20.04+ hoặc Debian 11+"
+      when: >
+        not (ansible_distribution == 'Ubuntu' and ansible_distribution_major_version | int >= 20) and
+        not (ansible_distribution == 'Debian' and ansible_distribution_major_version | int >= 11)
+
+    # ── 2. System setup ──────────────────────────────────────
+    - name: Set hostname
+      hostname:
+        name: "{{ inventory_hostname }}"
+
+    - name: Set timezone to UTC
+      timezone:
+        name: UTC
+
+    - name: Configure sysctl for Docker
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: true
+      loop:
+        - { name: "net.ipv4.ip_forward", value: "1" }
+        - { name: "net.bridge.bridge-nf-call-iptables", value: "1" }
+        - { name: "vm.max_map_count", value: "262144" }
+        - { name: "fs.file-max", value: "65536" }
+
+    # ── 3. Install Docker ────────────────────────────────────
+    - name: Install prerequisites
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - python3-pip
+        state: present
+        update_cache: true
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: >
+          deb [arch=amd64]
+          https://download.docker.com/linux/{{ ansible_distribution | lower }}
+          {{ ansible_distribution_release }} stable
+        state: present
+
+    - name: Install Docker Engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Configure Docker daemon
+      copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "100m",
+              "max-file": "3"
+            },
+            "default-ulimits": {
+              "nofile": {
+                "Name": "nofile",
+                "Hard": 65536,
+                "Soft": 65536
+              }
+            },
+            "live-restore": true,
+            "userland-proxy": false
+          }
+
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # ── 4. Create data directories ───────────────────────────
+    - name: Create data root directory
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      loop:
+        - "{{ data_root }}"
+        - "{{ data_root }}/traefik/certs"
+        - "{{ data_root }}/portainer/data"
+        - "{{ data_root }}/appwrite/uploads"
+        - "{{ data_root }}/appwrite/imports"
+        - "{{ data_root }}/appwrite/cache"
+        - "{{ data_root }}/appwrite/config"
+        - "{{ data_root }}/appwrite/certificates"
+        - "{{ data_root }}/appwrite/functions"
+        - "{{ data_root }}/appwrite/sites"
+        - "{{ data_root }}/appwrite/builds"
+        - "{{ data_root }}/appwrite/mariadb"
+        - "{{ data_root }}/appwrite/redis"
+
+    # ── 5. Join Swarm ─────────────────────────────────────────
+    - name: Check if already in Swarm
+      command: docker info --format '{{ "{{" }}.Swarm.LocalNodeState{{ "}}" }}'
+      register: swarm_state
+      changed_when: false
+
+    - name: Get join token from master (worker)
+      command: docker swarm join-token worker -q
+      delegate_to: "{{ master_ip }}"
+      register: worker_token
+      when:
+        - swarm_state.stdout != 'active'
+        - node_role == 'worker'
+
+    - name: Get join token from master (manager)
+      command: docker swarm join-token manager -q
+      delegate_to: "{{ master_ip }}"
+      register: manager_token
+      when:
+        - swarm_state.stdout != 'active'
+        - node_role == 'manager'
+
+    - name: Join Swarm as worker
+      command: >
+        docker swarm join
+        --token {{ worker_token.stdout }}
+        {{ master_ip }}:2377
+      when:
+        - swarm_state.stdout != 'active'
+        - node_role == 'worker'
+
+    - name: Join Swarm as manager
+      command: >
+        docker swarm join
+        --token {{ manager_token.stdout }}
+        {{ master_ip }}:2377
+      when:
+        - swarm_state.stdout != 'active'
+        - node_role == 'manager'
+
+    # ── 6. Apply node labels ──────────────────────────────────
+    - name: Get node ID
+      command: docker info --format '{{ "{{" }}.Swarm.NodeID{{ "}}" }}'
+      register: node_id
+      when: node_labels != ''
+
+    - name: Apply node labels
+      command: >
+        docker node update
+        --label-add {{ item }}
+        {{ node_id.stdout }}
+      delegate_to: "{{ master_ip }}"
+      loop: "{{ node_labels.split(',') }}"
+      when:
+        - node_labels != ''
+        - node_id is defined
+        - node_id.stdout != ''
+
+    # ── 7. Done ───────────────────────────────────────────────
+    - name: Verify node is in cluster
+      command: docker node ls
+      delegate_to: "{{ master_ip }}"
+      register: node_list
+
+    - name: Show cluster status
+      debug:
+        msg: "✅ Node {{ inventory_hostname }} đã gia nhập cluster thành công!"

@@ -16,7 +16,7 @@ var versionCmd = &cobra.Command{
 	Short: "Xem phiên bản hiện tại",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("swarm-ctl v%s (built %s)\n", Version, BuildDate)
-		fmt.Println("https://github.com/softtynet/swarm-ctl")
+		fmt.Println("https://github.com/LyVanBong/swarm-ctl")
 	},
 }
 

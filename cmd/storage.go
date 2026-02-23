@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/softtynet/swarm-ctl/internal/ui"
+	"github.com/LyVanBong/swarm-ctl/internal/ui"
 )
 
 var storageCmd = &cobra.Command{

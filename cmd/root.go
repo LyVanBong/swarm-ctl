@@ -28,7 +28,7 @@ var (
 Enterprise-grade Docker Swarm cluster management tool.
 Manage nodes, services, storage, and monitoring from a single CLI.
 
-Documentation: https://github.com/softtynet/swarm-ctl
+Documentation: https://github.com/LyVanBong/swarm-ctl
 `,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()

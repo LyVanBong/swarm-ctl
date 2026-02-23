@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/softtynet/swarm-ctl/internal/config"
-	"github.com/softtynet/swarm-ctl/internal/ssh"
-	"github.com/softtynet/swarm-ctl/internal/template"
-	"github.com/softtynet/swarm-ctl/internal/ui"
+	"github.com/LyVanBong/swarm-ctl/internal/config"
+	"github.com/LyVanBong/swarm-ctl/internal/ssh"
+	"github.com/LyVanBong/swarm-ctl/internal/template"
+	"github.com/LyVanBong/swarm-ctl/internal/ui"
 )
 
 var serviceCmd = &cobra.Command{
