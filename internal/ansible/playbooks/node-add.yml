@@ -23,6 +23,11 @@
         not (ansible_distribution == 'Ubuntu' and ansible_distribution_major_version | int >= 20) and
         not (ansible_distribution == 'Debian' and ansible_distribution_major_version | int >= 11)
 
+    # ── 1.5. Fix Broken Systems before APT runs ────────────────────
+    - name: Remove old Docker repo configurations to prevent APT Signed-By conflict
+      command: rm -f /etc/apt/sources.list.d/archive_uri-https_download_docker_com_linux_ubuntu-noble.list /etc/apt/sources.list.d/docker.list
+      ignore_errors: true
+
     # ── 2. System setup ──────────────────────────────────────
     - name: Set hostname
       hostname:
@@ -91,14 +96,6 @@
           - ufw
         state: present
         update_cache: true
-
-    - name: Remove old Docker repo configurations to prevent Signed-By conflict
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /etc/apt/sources.list.d/archive_uri-https_download_docker_com_linux_ubuntu-noble.list
-        - /etc/apt/sources.list.d/docker.list
 
     - name: Ensure keyrings dir exists
       file:
