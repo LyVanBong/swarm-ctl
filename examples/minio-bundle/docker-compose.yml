@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_PROMETHEUS_AUTH_TYPE=public
+    secrets:
+      - minio_root_user
+      - minio_root_password
+    networks:
+      - proxy_public
+      - app_internal
+    volumes:
+      - ${DATA_ROOT}/minio-data:/data
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        # Tích hợp trực tiếp Traefik Gateway
+        - "traefik.enable=true"
+        - "traefik.http.routers.minio_api.rule=Host(`s3.${DOMAIN}`)"
+        - "traefik.http.routers.minio_api.entrypoints=https"
+        - "traefik.http.routers.minio_api.tls.certresolver=le"
+        - "traefik.http.services.minio_api.loadbalancer.server.port=9000"
+
+        - "traefik.http.routers.minio_cons.rule=Host(`minio.${DOMAIN}`)"
+        - "traefik.http.routers.minio_cons.entrypoints=https"
+        - "traefik.http.routers.minio_cons.tls.certresolver=le"
+        - "traefik.http.services.minio_cons.loadbalancer.server.port=9001"
+
+networks:
+  proxy_public:
+    external: true
+  app_internal:
+    external: true
+
+secrets:
+  minio_root_user:
+    file: ./secrets/minio_root_user.txt
+  minio_root_password:
+    file: ./secrets/minio_root_password.txt
