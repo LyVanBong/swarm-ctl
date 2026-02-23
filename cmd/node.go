@@ -2,14 +2,17 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/LyVanBong/swarm-ctl/internal/ansible"
 	"github.com/LyVanBong/swarm-ctl/internal/config"
 	"github.com/LyVanBong/swarm-ctl/internal/ssh"
 	"github.com/LyVanBong/swarm-ctl/internal/ui"
+	"github.com/spf13/cobra"
 )
 
 var nodeCmd = &cobra.Command{
@@ -288,8 +291,8 @@ var nodeListCmd = &cobra.Command{
 // swarm-ctl node ssh
 // ──────────────────────────────────────────────
 var nodeSSHCmd = &cobra.Command{
-	Use:   "ssh",
-	Short: "SSH vào node",
+	Use:   "ssh [ip-or-hostname]",
+	Short: "SSH trực tiếp vào node",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
@@ -302,9 +305,135 @@ var nodeSSHCmd = &cobra.Command{
 		}
 
 		targetIP := args[0]
-		fmt.Printf("SSH vào %s@%s ...\n", cluster.SSHUser, targetIP)
-		// Thực tế sẽ exec ssh command để user có interactive shell
-		fmt.Printf("  Lệnh: ssh -i %s %s@%s\n", cluster.SSHKey, cluster.SSHUser, targetIP)
+		// Exec ssh trực tiếp để user có interactive shell
+		execPath, err := exec.LookPath("ssh")
+		if err != nil {
+			return fmt.Errorf("ssh không có trong PATH")
+		}
+
+		sshArgs := []string{
+			"ssh",
+			"-i", cluster.SSHKey,
+			"-o", "StrictHostKeyChecking=no",
+			fmt.Sprintf("%s@%s", cluster.SSHUser, targetIP),
+		}
+
+		fmt.Printf("🔗 SSH vào %s@%s ...\n", cluster.SSHUser, targetIP)
+		return syscall.Exec(execPath, sshArgs, os.Environ())
+	},
+}
+
+// ──────────────────────────────────────────────
+// swarm-ctl node label
+// ──────────────────────────────────────────────
+var nodeLabelCmd = &cobra.Command{
+	Use:   "label",
+	Short: "Quản lý node labels",
+}
+
+var nodeLabelAddCmd = &cobra.Command{
+	Use:   "add [node-ip] [key=value...]",
+	Short: "Thêm labels vào node",
+	Args:  cobra.MinimumNArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		cluster, err := cfg.GetCurrentCluster()
+		if err != nil {
+			return err
+		}
+
+		client := ssh.NewClient(cluster.MasterIP, cluster.SSHUser, cluster.SSHKey)
+		if err := client.Connect(); err != nil {
+			return err
+		}
+		defer client.Close()
+
+		targetIP := args[0]
+		labels := args[1:]
+
+		// Lấy node ID
+		nodeID, err := client.Run(fmt.Sprintf(
+			"docker node ls --filter 'addr=%s' --format '{{.ID}}'", targetIP))
+		if err != nil || strings.TrimSpace(nodeID) == "" {
+			// Thử tìm theo hostname
+			nodeID, err = client.Run(fmt.Sprintf(
+				"docker node ls --filter 'name=%s' --format '{{.ID}}'", targetIP))
+			if err != nil || strings.TrimSpace(nodeID) == "" {
+				return fmt.Errorf("không tìm thấy node '%s'", targetIP)
+			}
+		}
+		nodeID = strings.TrimSpace(nodeID)
+
+		// Thêm thi labels
+		labelArgs := strings.Join(func() []string {
+			var result []string
+			for _, l := range labels {
+				result = append(result, "--label-add "+l)
+			}
+			return result
+		}(), " ")
+
+		output, err := client.Run(fmt.Sprintf(
+			"docker node update %s %s", labelArgs, nodeID))
+		if err != nil {
+			return fmt.Errorf("thêm label thất bại: %w\n%s", err, output)
+		}
+
+		fmt.Println(ui.RenderSuccess(fmt.Sprintf(
+			"Labels [%s] đã được thêm vào node %s",
+			strings.Join(labels, ", "), targetIP)))
+		return nil
+	},
+}
+
+var nodeLabelRemoveCmd = &cobra.Command{
+	Use:   "remove [node-ip] [key...]",
+	Short: "Xóa labels khỏi node",
+	Args:  cobra.MinimumNArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		cluster, err := cfg.GetCurrentCluster()
+		if err != nil {
+			return err
+		}
+
+		client := ssh.NewClient(cluster.MasterIP, cluster.SSHUser, cluster.SSHKey)
+		if err := client.Connect(); err != nil {
+			return err
+		}
+		defer client.Close()
+
+		targetIP := args[0]
+		labelKeys := args[1:]
+
+		nodeID, _ := client.Run(fmt.Sprintf(
+			"docker node ls --filter 'addr=%s' --format '{{.ID}}'", targetIP))
+		nodeID = strings.TrimSpace(nodeID)
+		if nodeID == "" {
+			return fmt.Errorf("không tìm thấy node '%s'", targetIP)
+		}
+
+		labelArgs := strings.Join(func() []string {
+			var result []string
+			for _, k := range labelKeys {
+				result = append(result, "--label-rm "+k)
+			}
+			return result
+		}(), " ")
+
+		output, err := client.Run(fmt.Sprintf(
+			"docker node update %s %s", labelArgs, nodeID))
+		if err != nil {
+			return fmt.Errorf("xóa label thất bại: %w\n%s", err, output)
+		}
+
+		fmt.Println(ui.RenderSuccess(fmt.Sprintf("Labels đã được xóa khỏi node %s", targetIP)))
 		return nil
 	},
 }
@@ -328,4 +457,9 @@ func init() {
 	nodeCmd.AddCommand(nodeRemoveCmd)
 	nodeCmd.AddCommand(nodeListCmd)
 	nodeCmd.AddCommand(nodeSSHCmd)
+
+	// node label subcommands
+	nodeLabelCmd.AddCommand(nodeLabelAddCmd)
+	nodeLabelCmd.AddCommand(nodeLabelRemoveCmd)
+	nodeCmd.AddCommand(nodeLabelCmd)
 }
