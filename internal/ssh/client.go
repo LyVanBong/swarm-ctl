@@ -64,6 +64,11 @@ func (c *Client) Close() {
 	}
 }
 
+// GetRawClient lấy con trỏ gossh client gốc
+func (c *Client) GetRawClient() *gossh.Client {
+	return c.client
+}
+
 // Run chạy lệnh trên remote host, trả về output
 func (c *Client) Run(command string) (string, error) {
 	session, err := c.client.NewSession()

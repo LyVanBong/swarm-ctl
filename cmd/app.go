@@ -10,6 +10,7 @@ import (
 	"github.com/LyVanBong/swarm-ctl/internal/config"
 	"github.com/LyVanBong/swarm-ctl/internal/ssh"
 	"github.com/LyVanBong/swarm-ctl/internal/ui"
+	"github.com/bramvdbogaerde/go-scp"
 	"github.com/spf13/cobra"
 )
 
@@ -76,10 +77,21 @@ var appDeployCmd = &cobra.Command{
 		remoteDir := fmt.Sprintf("/opt/swarm-ctl-apps/%s", appName)
 		client.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
 
-		// Dùng SCP để copy thì phức tạp, trong CLI ta có thể pipe nội dung Tar qua SSH hoặc dùng lệnh scp
-		scpCmd := exec.Command("scp", "-o", "StrictHostKeyChecking=no", "-i", cluster.SSHKey, tarFile, fmt.Sprintf("%s@%s:%s/bundle.tar.gz", cluster.SSHUser, cluster.MasterIP, remoteDir))
-		if err := scpCmd.Run(); err != nil {
-			return fmt.Errorf("gửi file bundle thất bại: %v", err)
+		// Tải file qua thư viện go-scp (Bao bọc đa nền tảng)
+		scpClient, err := scp.NewClientBySSH(client.GetRawClient())
+		if err != nil {
+			return fmt.Errorf("không thể khởi tạo giao thức scp: %w", err)
+		}
+		defer scpClient.Close()
+		
+		fTar, err := os.Open(tarFile)
+		if err != nil {
+			return fmt.Errorf("lỗi đọc file nén: %w", err)
+		}
+		defer fTar.Close()
+
+		if err := scpClient.CopyFromFile(cmd.Context(), *fTar, remoteDir+"/bundle.tar.gz", "0644"); err != nil {
+			return fmt.Errorf("lỗi trong quá trình truyền file Bundle: %w", err)
 		}
 
 		fmt.Println(ui.RenderStep(3, 3, "Triển khai Docker Stack Native..."))
