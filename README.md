@@ -125,6 +125,31 @@ Một số App đỉnh nhất tích hợp sẵn:
 
 ---
 
+## 📌 Giải Thích Các Tham Số Đặc Biệt (Dành Cho Người Mới)
+
+Khi chạy các lệnh của `swarm-ctl`, có một vài tham số bắt buộc. Dưới đây là giải thích chi tiết chúng là gì và lấy từ đâu:
+
+1. **`--master` hoặc `--ip` (Địa chỉ IPv4 của Server)**
+   * **Nó là gì:** Địa chỉ mạng IP Public hoặc Private của máy chủ Cloud/VPS bạn mua.
+   * **Lấy ở đâu:** Đăng nhập vào bảng điều khiển (Dashboard) của nhà cung cấp Server (AWS EC2, DigitalOcean Droplet, Linode) và copy địa chỉ Public IP (vd: `103.25.x.x`).
+
+2. **`--key` (Đường dẫn tới SSH Private Key)**
+   * **Nó là gì:** Thay vì nhập mật khẩu dài ngoằng để kết nối Server, Linux dùng tệp tin "Chìa khóa mã hóa" (thường tên là `id_rsa` hoặc `id_ed25519`).
+   * **Lấy ở đâu:** Trên máy tính cá nhân của bạn, key thường nằm ở thư mục ẩn:
+     * Mac/Linux: `~/.ssh/id_rsa`
+     * Windows: `C:\Users\TenBan\.ssh\id_rsa`
+   * *(Lưu ý: Nếu bạn kết nối VPS bằng Password, bạn cần phải sinh SSH Key bằng lệnh `ssh-keygen` và copy lên Server bằng lệnh `ssh-copy-id user@IP` trước khi dùng Tool này).*
+
+3. **`--domain` (Tên miền chính thức)**
+   * **Nó là gì:** Tên website bạn dùng để dẫn khách truy cập vào Server (vd: `congtycuaban.com` hay `api.congty.vn`).
+   * **Lấy ở đâu:** Bạn phải Đăng ký mua trên các trang bán Domain (Tenten, Namecheap, Cloudflare). Sau khi mua, bạn vào cấu hình DNS của Domain đó, tạo Record **A** (bao gồm cả wildcard `*.congtycuaban.com`) và trỏ IP về đúng số `--master IP` bên trên. Khi đó Traefik mới tự cấp chứng chỉ HTTPS cho bạn được.
+
+4. **`--role` (Vai trò của Node)**
+   * **Nó là gì:** Khi cắm thêm Máy ảo Máy con vào mạng lưới, bạn phân công nó làm Nhiệm vụ gì.
+   * **Sử dụng:** `manager` (Vừa chạy App vừa làm quản trị Database/Bầu cử) hoặc `worker` (Chỉ chuyên chạy App, chịu tải Web).
+
+---
+
 ## 📋 Bảng Lệnh Tham Khảo (CLI Commands)
 
 ```text
