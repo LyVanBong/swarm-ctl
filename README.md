@@ -66,16 +66,30 @@ Dành cho ứng dụng Backend, Web, API để phân tán tải.
 ## 📦 Cài đặt Công Cụ (`swarm-ctl`)
 
 ### Cách 1: Tải nhanh Binary (Khuyến nghị)
+**Dành cho Linux (Ubuntu/Debian/CentOS)**
 ```bash
-# Dành cho Linux AMD64 (Ubuntu/Debian/CentOS)
-curl -L https://github.com/LyVanBong/swarm-ctl/releases/latest/download/swarm-ctl-linux-amd64 \
-  -o /usr/local/bin/swarm-ctl && chmod +x /usr/local/bin/swarm-ctl
+sudo curl -L https://github.com/LyVanBong/swarm-ctl/releases/latest/download/swarm-ctl-linux-amd64 \
+  -o /usr/local/bin/swarm-ctl && sudo chmod +x /usr/local/bin/swarm-ctl
+```
 
-# Kiểm tra cài đặt
+**Dành cho MacOS Apple Silicon (Chip M1/M2/M3)**
+```bash
+sudo curl -L https://github.com/LyVanBong/swarm-ctl/releases/latest/download/swarm-ctl-darwin-arm64 \
+  -o /usr/local/bin/swarm-ctl && sudo chmod +x /usr/local/bin/swarm-ctl
+```
+
+**Dành cho MacOS Intel (Chip core i5/i7/i9)**
+```bash
+sudo curl -L https://github.com/LyVanBong/swarm-ctl/releases/latest/download/swarm-ctl-darwin-amd64 \
+  -o /usr/local/bin/swarm-ctl && sudo chmod +x /usr/local/bin/swarm-ctl
+```
+
+Kiểm tra cài đặt:
+```bash
 swarm-ctl version
 ```
 
-### Cách 2: Build từ Source Code
+### Cách 2: Build từ Bản đồ Code (Source Code)
 *Yêu cầu Go 1.23+*
 ```bash
 git clone https://github.com/LyVanBong/swarm-ctl
