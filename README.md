@@ -2,7 +2,7 @@
 
 <div align="center">
 
-```
+```text
  ███████╗██╗    ██╗ █████╗ ██████╗ ███╗   ███╗      ██████╗████████╗██╗     
  ██╔════╝██║    ██║██╔══██╗██╔══██╗████╗ ████║     ██╔════╝╚══██╔══╝██║     
  ███████╗██║ █╗ ██║███████║██████╔╝██╔████╔██║     ██║        ██║   ██║     
@@ -23,118 +23,111 @@
 
 ## 🚀 Giới thiệu
 
-`swarm-ctl` là công cụ CLI giúp quản lý Docker Swarm cluster ở quy mô enterprise từ **một điểm duy nhất**.
+`swarm-ctl` là công cụ CLI giúp quản lý Docker Swarm cluster ở quy mô Doanh nghiệp (Enterprise) từ **một điểm duy nhất**. Tool tự động hóa toàn bộ công đoạn khó nhằn nhất của DevOps: cấu hình HA, Load Balancing tự động SSL, Zero-downtime deploy và Giám sát máy chủ chuyên nghiệp.
 
 **Chỉ cần cung cấp SSH key → Tool tự động làm mọi thứ còn lại.**
 
 ```bash
-# Khởi tạo cluster mới hoàn toàn tự động
-swarm-ctl cluster init --master 10.0.0.1 --key ~/.ssh/id_rsa --domain example.com
+# 1. Khởi tạo toàn bộ cluster tự động (Docker + Swarm + Traefik + Monitoring)
+swarm-ctl cluster init --master 10.0.0.1 --key ~/.ssh/id_rsa --domain softty.net
 
-# Thêm node mới (provision + join swarm tự động)
-swarm-ctl node add --ip 10.0.0.5 --role worker
+# 2. Triển khai Ứng dụng mẫu Mã nguồn mở từ Marketplace
+swarm-ctl app install nocodb --domain data.softty.net
 
-# Deploy service với SSL tự động
-swarm-ctl service add --name my-api --image nginx:latest --domain api.example.com --port 3000
-
-# Scale khi traffic tăng
-swarm-ctl service scale my-api=10
+# 3. Theo dõi toàn cảnh Sức khỏe Cluster thông qua TUI màu sắc
+swarm-ctl dashboard
 ```
 
 ---
 
-## ✨ Tính năng
+## 💻 Yêu cầu Hệ thống (System Requirements)
 
-### 🖥️ Cluster Management
-- `cluster init` — Bootstrap cluster đầy đủ (Docker + Swarm + Traefik + Portainer + Monitoring)
-- `cluster status` — Tổng quan health của cluster
-- `cluster upgrade` — Nâng cấp Docker zero-downtime *(v1.1)*
+Để chạy trơn tru kiến trúc Cluster chuẩn, bạn cần chuẩn bị server với hệ điều hành **Ubuntu 20.04+** hoặc **Debian 11+** có mở SSH Port 22:
 
-### 📦 Node Management
-- `node add` — Provision + join node mới hoàn toàn tự động qua SSH + Ansible
-- `node remove` — Drain an toàn rồi xóa node
-- `node list` — Danh sách nodes với status real-time
-- `node ssh` — SSH nhanh vào node
+### 1. Master/Manager Node (Khuyên dùng tối thiểu 1 máy)
+Máy chứa Database, Monitoring và điều khiển Swarm.
+- **CPU:** Tối thiểu 2 vCores (Khuyến nghị 4 vCores cho production).
+- **RAM:** Tối thiểu 4GB (Khuyến nghị 8GB+ để chạy đủ MinIO, MariaDB, Prometheus).
+- **Disk:** Tối thiểu 50GB SSD/NVMe.
 
-### 🚀 Service Management
-- `app install` — Cài đặt nhanh ứng dụng mẫu (n8n, nocodb, metabase...) *(v1.0)*
-- `service add` — Tạo service mới với wizard (tự generate compose + labels Traefik)
-- `service deploy` — Deploy từ services.yml
-- `service scale` — Scale replicas
-- `service update` — Rolling update zero-downtime
-- `service rollback` — Rollback về version trước
-- `service logs` — Live logs
-- `service remove` — Xóa service
+### 2. Worker Nodes (Tuỳ chọn ráp sau)
+Dành cho ứng dụng Backend, Web, API để phân tán tải.
+- **CPU:** 1-2 vCores / **RAM:** 2GB.
+*(Tất cả kết nối qua LAN Nội bộ Private IP để giảm độ trễ)*
 
-### 🔐 Secret Management
-- `secret add/list/remove` — Quản lý Docker Secrets
-- `secret rotate` — Rotate secret không downtime *(v1.1)*
-
-### 💾 Storage & Backup *(v1.1)*
-- `storage status` — MinIO/GlusterFS health
-- `backup create/restore/list` — Backup automation
-
-### 📊 Dashboard *(v1.2)*
-- `dashboard` — Live TUI dashboard (Bubbletea)
+### 3. Máy cá nhân chạy lệnh (`swarm-ctl`)
+- Linux / macOS / Windows.
+- Khóa SSH (SSH Key) có quyền đăng nhập vào các Servers.
 
 ---
 
-## 📦 Cài đặt
+## 📦 Cài đặt Công Cụ (`swarm-ctl`)
 
-### Download binary (Khuyến nghị)
-
+### Cách 1: Tải nhanh Binary (Khuyến nghị)
 ```bash
-# Linux AMD64
+# Dành cho Linux AMD64 (Ubuntu/Debian/CentOS)
 curl -L https://github.com/LyVanBong/swarm-ctl/releases/latest/download/swarm-ctl-linux-amd64 \
   -o /usr/local/bin/swarm-ctl && chmod +x /usr/local/bin/swarm-ctl
 
-# Kiểm tra
+# Kiểm tra cài đặt
 swarm-ctl version
 ```
 
-### Build từ source
-
+### Cách 2: Build từ Source Code
+*Yêu cầu Go 1.23+*
 ```bash
 git clone https://github.com/LyVanBong/swarm-ctl
 cd swarm-ctl
-go build -o swarm-ctl .
+make build
 sudo mv swarm-ctl /usr/local/bin/
 ```
 
 ---
 
-## 🏗️ Kiến trúc
+## 🏗️ Kiến trúc & Dịch vụ Nền tảng Mặc định
 
-Tool hoạt động theo mô hình **2 lớp**:
+Tool phân chia Cluster thành **3 Tier (3 Lớp mạng)**. Ngay khi lệnh `cluster init` thành công, các dịch vụ này tự động chạy ẩn:
 
-```
-swarm-ctl (CLI)          Ansible (Engine)         Target Nodes
-     │                        │                        │
-     ├─ node add ────────────►│── SSH ────────────────►│
-     │                        │   Install Docker       │
-     │                        │   Setup directories    │
-     │                        │   Join Swarm          │
-     │◄────────── Done ───────┤                        │
-```
-
-### Tier 1: Infrastructure (Auto-deployed khi `cluster init`)
-- **Traefik** — Reverse proxy, SSL (Let's Encrypt wildcard), load balancing
-- **Portainer** — Management UI
-
-### Tier 2: Platform (Auto-deployed khi `cluster init`)  
-- **MinIO** — S3-compatible distributed storage
-- **MariaDB Galera** — HA database cluster (3 nodes)
-- **Redis Sentinel** — HA cache/queue
-- **Prometheus + Grafana + Loki** — Observability stack
-
-### Tier 3: Applications (User tự deploy)
-- Appwrite, WordPress, n8n, NocoDB, và bất kỳ service nào khác
+1. **Tier 1 (Hạ tầng - Ingress):**
+   - Traefik: Cổng Router, Load Balancer tự động cấp HTTPS (Let's Encrypt).
+   - Portainer: Giao diện web quản lý Docker.
+2. **Tier 2 (Platform - Dữ liệu vĩnh viễn):**
+   - **Database & Cache:** MariaDB Galera (CSDL rập khuôn), Redis Sentinel.
+   - **Lưu trữ:** MinIO (Private S3 Cloud).
+   - **Giám sát (Observability Stack):** Prometheus (Metrics) + Grafana (Dashboard) + Loki (Gom Logs) + Alertmanager.
+3. **Tier 3 (Applications):** Chứa các App do bạn tự Deploy (Wordpress, Web, NodeJS, API...).
 
 ---
 
-## 📋 Commands Reference
+## ✨ Tính Năng Nổi Bật (Ecosystem)
 
+- 🔒 **Zero-Trust Connection:** Không mở cổng Docker Socket ra Internet. Tool hoàn toàn ra lệnh máy chủ thông qua kênh SSH mã hóa nội bộ.
+- ♻️ **Zero-Downtime Deploy:** Hỗ trợ tính năng `service update` (khởi chạy bản mới trước khi tắt bản cũ) hoặc `secret rotate` (đổi mật khẩu database mà API đang kết nối không chết).
+- 📂 **Distributed Storage (GlusterFS):** Hỗ trợ `storage init-glusterfs` để đồng bộ ổ đĩa giữa 3 con Worker/Master chống cháy nổ vật lý.
+- 🗄️ **Cứu Hộ Dữ Liệu:** Lệnh `backup create/restore` tự động zip toàn thư mục phân quyền và tạo SQL Export cứu sống Cluster phút mốt.
+- 📝 **Nhật ký Kiểm Toán (Audit Trail):** Mọi lệnh can thiệp thay đổi (`node remove`, `service add`) đều ghi nhật ký tên PC, Thời gian vào file local `/audit.log` và loại bỏ hoàn toàn các Argument mang tính nhạy cảm như (Password/Key). 
+
+---
+
+## 🛒 Chợ Ứng Dụng (1-Click Marketplace)
+
+Với hơn 15+ phần mềm Enterprise/Open-source nổi tiếng. Bạn không cần tự viết `docker-compose`. Chỉ cần gõ:
+```bash
+swarm-ctl app list
+swarm-ctl app install [tên-app] --domain sub.congty.com
 ```
+
+Một số App đỉnh nhất tích hợp sẵn:
+* **Tự động hóa:** `n8n` (Chuẩn Zapier)
+* **Website & CMS:** `wordpress`, `ghost`
+* **Công cụ nội bộ:** `nocodb` (Airtable-like), `metabase` (Trực quan Data), `nextcloud` (Google Drive tự cài).
+* **Bảo mật & Dev:** `vaultwarden` (Quản lý Mật khẩu), `gitea` (Trạm Code nội bộ), `uptime-kuma` (Đo Ping Web).
+
+---
+
+## 📋 Bảng Lệnh Tham Khảo (CLI Commands)
+
+```text
 swarm-ctl
 ├── cluster
 │   ├── init     --master IP --key PATH --domain DOMAIN [--name NAME]
@@ -161,97 +154,44 @@ swarm-ctl
 │   └── rotate   NAME NEW-VALUE
 ├── storage
 │   ├── status
+│   ├── init-glusterfs --nodes IP1,IP2..
 │   └── expand   --node IP
 ├── backup
 │   ├── create
 │   ├── restore  BACKUP-ID
 │   └── list
 ├── app
-│   ├── list     (Marketplace)
+│   ├── list     (Trình chiếu Marketplace)
 │   └── install  APP-ID [--domain DOMAIN]
-├── dashboard
+├── dashboard    (Live Terminal UI)
+├── audit        (Xem nhật ký thao tác)
 └── version
 ```
 
 ---
 
-## ⚙️ Yêu cầu
+## 📚 Tài Liệu Hướng Dẫn Vận Hành (Runbooks) & Liên kết Phụ
 
-### Máy chạy swarm-ctl
-- Linux/macOS/Windows
-- SSH key có quyền truy cập
+Tham khảo thêm các hướng dẫn cấu hình kỹ thuật sâu hơn tại thư mục [docs/runbooks](docs/runbooks/):
 
-## 📚 Documentation (Runbooks)
-
-Để vận hành hệ thống trơn tru và chuyên nghiệp trong production, `swarm-ctl` cung cấp các Runbooks tài liệu (Khắc phục sự cố theo từng bước):
-
-* [Disaster Recovery & Backup](docs/runbooks/01-disaster-recovery.md) - Cứu hoả khi sập DB, sập toàn bộ Master, thao tác với Backup/Restore.
-* [Node Management](docs/runbooks/02-node-management.md) - Cách Add thêm máy ảo, thu hẹp ứng dụng, cách cập nhật Kernel Linux cho máy Worker Node an toàn.
-* [Service Updates](docs/runbooks/03-service-updates.md) - Cách deploy lại 1 app, tự động đổi mật khẩu Database (zero-downtime rotation), rollback phiên bản bị lỗi.
-
-## 🔗 Các Liên Kết Quan Trọng (Important Links)
+* [Khôi phục Thảm Họa (Disaster Recovery & Backup)](docs/runbooks/01-disaster-recovery.md) - Cứu hoả khi sập DB, sập toàn bộ Master.
+* [Quản lý Máy chủ (Node Management)](docs/runbooks/02-node-management.md) - Cách Add thêm máy ảo, cách cập nhật Kernel Linux an toàn.
+* [Cập nhật Dịch vụ (Service Updates)](docs/runbooks/03-service-updates.md) - Re-deploy, Rotate Mật khẩu không Downtime.
 * [Kiến trúc Mô Hình Cluster](docs/architecture.md)
 * [Lịch sử Cập Nhật (CHANGELOG)](CHANGELOG.md)
-* [Hướng dẫn Đóng góp Mã nguồn (CONTRIBUTING)](CONTRIBUTING.md)
-* [Giấy phép MIT (LICENSE)](LICENSE)
-
-## 📦 Công nghệ sử dụng
-### Các nodes trong cluster
-- Ubuntu 20.04+ hoặc Debian 11+
-- SSH port 22 mở
-- Quyền sudo
 
 ---
 
-## 🤝 Contributing
+## 🤝 Đóng góp Mã Nguồn (Contributing)
 
-Đóng góp luôn được chào đón! Xem [CONTRIBUTING.md](CONTRIBUTING.md).
-
----
-
-## 📄 License
-
-MIT License — xem [LICENSE](LICENSE)
+Dự án là của Cộng đồng! Bạn có ý tưởng phát triển App mới vào Marketplace, hay Report lỗi, xin vui lòng xem [Hướng dẫn Đóng góp (CONTRIBUTING)](CONTRIBUTING.md). Cảm ơn vì đã giúp `swarm-ctl` trở nên tốt hơn!
 
 ---
 
-**Tác giả**: [Ly Van Bong](https://github.com/LyVanBong)  
-**Website**: https://www.softty.net
+## 📄 Bản Quyền (License)
 
-## 🚀 Các dịch vụ (Services) được triển khai mặc định
+Dự án được phân phối dưới giấy phép [MIT License](LICENSE). 
 
-Khi bạn chạy lệnh `swarm-ctl cluster init` để khởi tạo Cluster, `swarm-ctl` sẽ tự động thiết lập 2 nhóm dịch vụ (Tier 1 và Tier 2) chuẩn Enterprise để bạn có ngay hệ sinh thái hoàn chỉnh mà không cần cấu hình thủ công:
-
-### Tier 1: Hạ tầng (Infrastructure) - *Bắt buộc*
-* **Traefik (Gateway):** Router, Load Balancer siêu cấp tự động xin chứng chỉ SSL/TLS (Let's Encrypt) cho mọi tên miền. (Có trang Dashboard quản lý + Auth).
-* **Portainer (Management):** WebUI quản lý Docker/Swarm trực quan ngoài Dashboard CLI.
-* **Middlewares Security:** Thiết lập sẵn các bộ lọc chống Ddos (RateLimit), Security Headers ngăn chặn iFrame, XSS.
-
-### Tier 2: Dịch vụ nền tảng (Platform Services) - *Bắt buộc*
-* **MariaDB Database:** Hệ quản trị CSDL siêu tối ưu cho Production, thiết đặt sẵn tự động backup.
-* **Redis Cache:** Cache In-Memory và Session Storage tiêu chuẩn.
-* **MinIO (S3-compatible):** Server lưu trữ vệ tinh phân tán (Chứa file upload, ảnh, video của users).
-* **Monitoring Stack trọn bộ:**
-  * **Prometheus:** Gom metric (CPU, RAM, Network) toàn bộ cụm.
-  * **Grafana:** Vẽ biểu đồ giám sát Data real-time.
-  * **Loki & Promtail:** Thu gom Logs (Console Logs) của tất cả containers dồn về 1 mối tập trung. Không cần SSH vào từng node đọc log.
-  * **Alertmanager:** Server cấu hình kịch bản báo động tới Telegram/Slack khi hệ thống sập.
-
-## 💻 Yêu cầu hệ thống tối thiểu (System Requirements)
-
-Để chạy trơn tru kiến trúc bên trên, bạn cần chuẩn bị tài nguyên cơ bản (Cloud Server/VPS):
-
-### 1. Master/Manager Node (Tối thiểu 1 máy)
-Máy chứa Database, Monitoring và điều khiển Swarm.
-- **CPU:** Tối thiểu 2 vCores (Khuyến nghị 4 vCores cho production).
-- **RAM:** Tối thiểu 4GB (Khuyến nghị 8GB+ để chạy đủ MinIO, MariaDB, Prometheus).
-- **Disk:** Tối thiểu 50GB SSD/NVMe (Nên mở rộng >100GB nếu nạp lượng lớn File Upload).
-- **OS:** Linux (Ubuntu 20.04+, Debian 11+).
-
-### 2. Worker Nodes (Dành cho Ứng dụng/Web/API) - Có thể thêm sau
-Máy chuyên chạy ứng dụng (Backend, Frontend).
-- **CPU:** 1-2 vCores là đủ.
-- **RAM:** 2GB.
-- **OS:** Linux.
-
-*Lưu ý: Tất cả các máy tính cần kết nối qua Mạng LAN Nội bộ (Private IP) để tốc độ đồng bộ Cluster tối ưu nhất và giảm độ trễ (Latency).*
+<div align="center">
+<b>Được phát triển bền vững bởi <a href="https://github.com/LyVanBong">Ly Van Bong</a> & <a href="https://www.softty.net">Softty Net</a></b>
+</div>
