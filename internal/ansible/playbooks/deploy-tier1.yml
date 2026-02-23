@@ -79,8 +79,6 @@
                   - "traefik.http.routers.traefik.tls=true"
                   - "traefik.http.routers.traefik.tls.certresolver=le"
                   - "traefik.http.routers.traefik.service=api@internal"
-                  - "traefik.http.routers.traefik.middlewares=admin-auth"
-                  - "traefik.http.middlewares.admin-auth.basicauth.users=admin:$$apr1$$xyz$$abc"
                   - "traefik.http.services.traefik-svc.loadbalancer.server.port=8080"
                   - "traefik.swarm.network=proxy_public"
               healthcheck:
