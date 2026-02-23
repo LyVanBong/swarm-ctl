@@ -16,11 +16,12 @@
 
   tasks:
 
-    # ── 1. Tạo Docker Secrets ─────────────────────────────────
-    - name: Create CF DNS API token secret
-      shell: |
-        echo "{{ cf_dns_api_token }}" | docker secret create cf_dns_api_token - 2>/dev/null || true
-      when: cf_dns_api_token != ''
+    # ── 1. Create Traefik Data directory ──────────────────────
+    - name: Ensure certificates directory exists
+      file:
+        path: "{{ data_root }}/traefik/certs"
+        state: directory
+        mode: '0755'
 
     # ── 2. Deploy Traefik ─────────────────────────────────────
     - name: Create Traefik compose file
@@ -43,8 +44,7 @@
                 - "--entrypoints.https.address=:443"
                 - "--entrypoints.http.http.redirections.entrypoint.to=https"
                 - "--entrypoints.http.http.redirections.entrypoint.scheme=https"
-                - "--certificatesresolvers.le.acme.dnschallenge=true"
-                - "--certificatesresolvers.le.acme.dnschallenge.provider=cloudflare"
+                - "--certificatesresolvers.le.acme.tlschallenge=true"
                 - "--certificatesresolvers.le.acme.email={{ acme_email }}"
                 - "--certificatesresolvers.le.acme.storage=/certificates/acme.json"
                 - "--metrics.prometheus=true"
@@ -61,10 +61,7 @@
                 - {{ data_root }}/traefik/certs:/certificates
               networks:
                 - proxy_public
-              secrets:
-                - cf_dns_api_token
-              environment:
-                - CF_DNS_API_TOKEN_FILE=/run/secrets/cf_dns_api_token
+
               deploy:
                 mode: global
                 placement:
@@ -92,9 +89,7 @@
             proxy_public:
               external: true
 
-          secrets:
-            cf_dns_api_token:
-              external: true
+
 
     - name: Deploy Traefik stack
       command: docker stack deploy -c /tmp/traefik-compose.yml traefik --with-registry-auth
