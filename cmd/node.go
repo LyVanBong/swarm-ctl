@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -107,9 +106,6 @@ Ví dụ:
 			// Kiểm tra và yêu cầu sshpass
 			_, err := exec.LookPath("sshpass")
 			if err != nil {
-				if runtime.GOOS == "windows" {
-					return fmt.Errorf("cờ --pass sử dụng thư viện sshpass không khả dụng trực tiếp trên Windows (CMD/PowerShell). Vui lòng dùng WSL (Windows Subsystem for Linux) hoặc tự sinh và gửi khóa SSH.")
-				}
 				fmt.Println(ui.RenderWarning("Không tìm thấy lệnh 'sshpass'. Đang tự động cài đặt cho bạn..."))
 				installCmd := ""
 				
