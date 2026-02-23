@@ -184,10 +184,10 @@ swarm-ctl
 ├── backup
 │   ├── create
 │   ├── restore  BACKUP-ID
-│   └── list
+│   ├── list
 ├── app
 │   ├── list     (Trình chiếu Marketplace)
-│   └── install  APP-ID [--domain DOMAIN]
+│   └── install  APP-ID [--domain DOMAIN] [--node HOSTNAME]
 ├── dashboard    (Live Terminal UI)
 ├── audit        (Xem nhật ký thao tác)
 └── version
