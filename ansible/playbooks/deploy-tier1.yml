@@ -1,0 +1,202 @@
+---
+# deploy-tier1.yml - Deploy Tier 1: Infrastructure services
+# Traefik + Portainer (bắt buộc, deploy trước tất cả)
+
+- name: "🔧 Deploy Tier 1: Infrastructure"
+  hosts: nodes
+  become: true
+  gather_facts: false
+
+  vars:
+    data_root: "/opt/data"
+    domain: ""
+    cf_dns_api_token: ""
+    acme_email: "admin@{{ domain }}"
+    portainer_admin_password: ""
+
+  tasks:
+
+    # ── 1. Tạo Docker Secrets ─────────────────────────────────
+    - name: Create CF DNS API token secret
+      shell: |
+        echo "{{ cf_dns_api_token }}" | docker secret create cf_dns_api_token - 2>/dev/null || true
+      when: cf_dns_api_token != ''
+
+    # ── 2. Deploy Traefik ─────────────────────────────────────
+    - name: Create Traefik compose file
+      copy:
+        dest: /tmp/traefik-compose.yml
+        content: |
+          version: '3.8'
+
+          services:
+            traefik:
+              image: traefik:v3.3
+              command:
+                - "--api.dashboard=true"
+                - "--log.level=INFO"
+                - "--accesslog=true"
+                - "--providers.swarm=true"
+                - "--providers.swarm.exposedByDefault=false"
+                - "--providers.swarm.network=proxy_public"
+                - "--entrypoints.http.address=:80"
+                - "--entrypoints.https.address=:443"
+                - "--entrypoints.http.http.redirections.entrypoint.to=https"
+                - "--entrypoints.http.http.redirections.entrypoint.scheme=https"
+                - "--certificatesresolvers.le.acme.dnschallenge=true"
+                - "--certificatesresolvers.le.acme.dnschallenge.provider=cloudflare"
+                - "--certificatesresolvers.le.acme.email={{ acme_email }}"
+                - "--certificatesresolvers.le.acme.storage=/certificates/acme.json"
+                - "--metrics.prometheus=true"
+                - "--metrics.prometheus.addRoutersLabels=true"
+              ports:
+                - target: 80
+                  published: 80
+                  mode: host
+                - target: 443
+                  published: 443
+                  mode: host
+              volumes:
+                - /var/run/docker.sock:/var/run/docker.sock:ro
+                - {{ data_root }}/traefik/certs:/certificates
+              networks:
+                - proxy_public
+              secrets:
+                - cf_dns_api_token
+              environment:
+                - CF_DNS_API_TOKEN_FILE=/run/secrets/cf_dns_api_token
+              deploy:
+                mode: global
+                placement:
+                  constraints:
+                    - node.role == manager
+                restart_policy:
+                  condition: on-failure
+                labels:
+                  - "traefik.enable=true"
+                  - "traefik.http.routers.traefik.rule=Host(`traefik.{{ domain }}`)"
+                  - "traefik.http.routers.traefik.entrypoints=https"
+                  - "traefik.http.routers.traefik.tls=true"
+                  - "traefik.http.routers.traefik.tls.certresolver=le"
+                  - "traefik.http.routers.traefik.service=api@internal"
+                  - "traefik.http.routers.traefik.middlewares=admin-auth"
+                  - "traefik.http.middlewares.admin-auth.basicauth.users=admin:$$apr1$$xyz$$abc"
+                  - "traefik.http.services.traefik-svc.loadbalancer.server.port=8080"
+                  - "traefik.swarm.network=proxy_public"
+              healthcheck:
+                test: ["CMD", "traefik", "healthcheck", "--ping"]
+                interval: 30s
+                retries: 3
+
+          networks:
+            proxy_public:
+              external: true
+
+          secrets:
+            cf_dns_api_token:
+              external: true
+
+    - name: Deploy Traefik stack
+      command: docker stack deploy -c /tmp/traefik-compose.yml traefik --with-registry-auth
+
+    - name: Wait for Traefik to start
+      pause:
+        seconds: 15
+
+    # ── 3. Deploy Portainer ───────────────────────────────────
+    - name: Create Portainer compose file
+      copy:
+        dest: /tmp/portainer-compose.yml
+        content: |
+          version: '3.8'
+
+          services:
+            portainer-agent:
+              image: portainer/agent:2.21.5
+              volumes:
+                - /var/run/docker.sock:/var/run/docker.sock
+                - /var/lib/docker/volumes:/var/lib/docker/volumes
+              networks:
+                - portainer_agent
+              deploy:
+                mode: global
+                placement:
+                  constraints:
+                    - node.platform.os == linux
+
+            portainer:
+              image: portainer/portainer-ce:2.21.5
+              command: -H tcp://tasks.portainer-agent:9001 --tlsskipverify
+              volumes:
+                - {{ data_root }}/portainer/data:/data
+              networks:
+                - portainer_agent
+                - proxy_public
+              deploy:
+                mode: replicated
+                replicas: 1
+                placement:
+                  constraints:
+                    - node.role == manager
+                labels:
+                  - "traefik.enable=true"
+                  - "traefik.http.routers.portainer.rule=Host(`portainer.{{ domain }}`)"
+                  - "traefik.http.routers.portainer.entrypoints=https"
+                  - "traefik.http.routers.portainer.tls.certresolver=le"
+                  - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+                  - "traefik.swarm.network=proxy_public"
+
+          networks:
+            portainer_agent:
+              driver: overlay
+              attachable: true
+            proxy_public:
+              external: true
+
+    - name: Deploy Portainer stack
+      command: docker stack deploy -c /tmp/portainer-compose.yml portainer --with-registry-auth
+
+    # ── 4. Setup Traefik Middlewares ──────────────────────────
+    - name: Create middlewares compose file
+      copy:
+        dest: /tmp/middlewares-compose.yml
+        content: |
+          version: '3.8'
+
+          services:
+            # Dummy service để tạo global middlewares
+            _middlewares:
+              image: alpine:latest
+              command: ["echo", "middlewares"]
+              networks:
+                - proxy_public
+              deploy:
+                replicas: 0
+                labels:
+                  # Rate limiting
+                  - "traefik.http.middlewares.ratelimit.ratelimit.average=100"
+                  - "traefik.http.middlewares.ratelimit.ratelimit.burst=50"
+                  # Security headers
+                  - "traefik.http.middlewares.security-headers.headers.stsSeconds=31536000"
+                  - "traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true"
+                  - "traefik.http.middlewares.security-headers.headers.stsPreload=true"
+                  - "traefik.http.middlewares.security-headers.headers.contentTypeNosniff=true"
+                  - "traefik.http.middlewares.security-headers.headers.browserXssFilter=true"
+                  - "traefik.http.middlewares.security-headers.headers.referrerPolicy=same-origin"
+                  - "traefik.http.middlewares.security-headers.headers.frameDeny=true"
+                  - "traefik.enable=true"
+                  - "traefik.swarm.network=proxy_public"
+
+          networks:
+            proxy_public:
+              external: true
+
+    - name: Deploy middlewares
+      command: docker stack deploy -c /tmp/middlewares-compose.yml middlewares
+
+    - name: Done
+      debug:
+        msg: |
+          ✅ Tier 1 deployed successfully!
+          Traefik:   https://traefik.{{ domain }}
+          Portainer: https://portainer.{{ domain }}

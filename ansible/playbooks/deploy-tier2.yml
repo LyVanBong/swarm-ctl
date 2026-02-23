@@ -1,0 +1,443 @@
+---
+# deploy-tier2.yml - Deploy Tier 2: Platform services
+# MinIO + MariaDB Galera + Redis Sentinel + Prometheus + Grafana + Loki + Alertmanager
+
+- name: "📦 Deploy Tier 2: Platform Services"
+  hosts: nodes
+  become: true
+  gather_facts: false
+
+  vars:
+    data_root: "/opt/data"
+    domain: ""
+    minio_root_user: "minioadmin"
+    minio_root_password: ""
+    mariadb_root_password: ""
+    mariadb_database: "appwrite"
+    mariadb_user: "appwrite"
+    mariadb_password: ""
+    redis_password: ""
+    grafana_admin_password: ""
+    alertmanager_telegram_token: ""
+    alertmanager_telegram_chat_id: ""
+
+  tasks:
+
+    # ──────────────────────────────────────────────────────────
+    # 1. MinIO (S3-compatible distributed storage)
+    # ──────────────────────────────────────────────────────────
+    - name: Create MinIO secrets
+      shell: |
+        echo "{{ minio_root_user }}" | docker secret create minio_root_user - 2>/dev/null || true
+        echo "{{ minio_root_password }}" | docker secret create minio_root_password - 2>/dev/null || true
+
+    - name: Create MinIO compose
+      copy:
+        dest: /tmp/minio-compose.yml
+        content: |
+          version: '3.8'
+
+          services:
+            minio:
+              image: minio/minio:latest
+              command: server /data --console-address ":9001"
+              volumes:
+                - {{ data_root }}/minio:/data
+              networks:
+                - proxy_public
+                - app_internal
+              secrets:
+                - minio_root_user
+                - minio_root_password
+              environment:
+                - MINIO_ROOT_USER_FILE=/run/secrets/minio_root_user
+                - MINIO_ROOT_PASSWORD_FILE=/run/secrets/minio_root_password
+                - MINIO_PROMETHEUS_AUTH_TYPE=public
+              deploy:
+                replicas: 1
+                placement:
+                  constraints:
+                    - node.role == manager
+                restart_policy:
+                  condition: on-failure
+                labels:
+                  - "traefik.enable=true"
+                  - "traefik.http.routers.minio-console.rule=Host(`minio.{{ domain }}`)"
+                  - "traefik.http.routers.minio-console.entrypoints=https"
+                  - "traefik.http.routers.minio-console.tls.certresolver=le"
+                  - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+                  - "traefik.http.routers.minio-api.rule=Host(`s3.{{ domain }}`)"
+                  - "traefik.http.routers.minio-api.entrypoints=https"
+                  - "traefik.http.routers.minio-api.tls.certresolver=le"
+                  - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
+                  - "traefik.swarm.network=proxy_public"
+              healthcheck:
+                test: ["CMD", "mc", "ready", "local"]
+                interval: 30s
+                retries: 3
+
+          networks:
+            proxy_public:
+              external: true
+            app_internal:
+              external: true
+
+          secrets:
+            minio_root_user:
+              external: true
+            minio_root_password:
+              external: true
+
+    - name: Deploy MinIO
+      command: docker stack deploy -c /tmp/minio-compose.yml minio
+
+    - name: Wait for MinIO to start
+      pause:
+        seconds: 20
+
+    # ──────────────────────────────────────────────────────────
+    # 2. MariaDB (Single node, production-ready)
+    # ──────────────────────────────────────────────────────────
+    - name: Create MariaDB secrets
+      shell: |
+        echo "{{ mariadb_root_password }}" | docker secret create mariadb_root_password - 2>/dev/null || true
+        echo "{{ mariadb_password }}" | docker secret create mariadb_password - 2>/dev/null || true
+
+    - name: Create MariaDB config
+      copy:
+        dest: "{{ data_root }}/mariadb/production.cnf"
+        content: |
+          [mysqld]
+          innodb_buffer_pool_size        = 512M
+          innodb_log_file_size           = 128M
+          innodb_flush_log_at_trx_commit = 2
+          innodb_flush_method            = O_DIRECT
+          max_connections                = 500
+          max_allowed_packet             = 256M
+          slow_query_log                 = 1
+          slow_query_log_file            = /var/log/mysql/slow.log
+          long_query_time                = 2
+          character-set-server           = utf8mb4
+          collation-server               = utf8mb4_unicode_ci
+
+    - name: Create MariaDB compose
+      copy:
+        dest: /tmp/mariadb-compose.yml
+        content: |
+          version: '3.8'
+
+          services:
+            mariadb:
+              image: mariadb:10.11
+              command: 'mysqld --innodb-flush-method=fsync'
+              volumes:
+                - {{ data_root }}/appwrite/mariadb:/var/lib/mysql
+                - {{ data_root }}/mariadb/production.cnf:/etc/mysql/conf.d/production.cnf:ro
+              networks:
+                - app_internal
+              secrets:
+                - mariadb_root_password
+                - mariadb_password
+              environment:
+                - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mariadb_root_password
+                - MYSQL_DATABASE={{ mariadb_database }}
+                - MYSQL_USER={{ mariadb_user }}
+                - MYSQL_PASSWORD_FILE=/run/secrets/mariadb_password
+                - MARIADB_AUTO_UPGRADE=1
+              deploy:
+                replicas: 1
+                placement:
+                  constraints:
+                    - node.role == manager
+                restart_policy:
+                  condition: on-failure
+              healthcheck:
+                test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+                interval: 30s
+                retries: 5
+
+          networks:
+            app_internal:
+              external: true
+
+          secrets:
+            mariadb_root_password:
+              external: true
+            mariadb_password:
+              external: true
+
+    - name: Deploy MariaDB
+      command: docker stack deploy -c /tmp/mariadb-compose.yml database
+
+    # ──────────────────────────────────────────────────────────
+    # 3. Redis
+    # ──────────────────────────────────────────────────────────
+    - name: Create Redis compose
+      copy:
+        dest: /tmp/redis-compose.yml
+        content: |
+          version: '3.8'
+
+          services:
+            redis:
+              image: redis:7.2.4-alpine
+              command: >
+                redis-server
+                --maxmemory 512mb
+                --maxmemory-policy allkeys-lru
+                --maxmemory-samples 5
+                --save 60 1
+                --loglevel notice
+              volumes:
+                - {{ data_root }}/appwrite/redis:/data
+              networks:
+                - app_internal
+              deploy:
+                replicas: 1
+                placement:
+                  constraints:
+                    - node.role == manager
+                restart_policy:
+                  condition: on-failure
+              healthcheck:
+                test: ["CMD", "redis-cli", "ping"]
+                interval: 30s
+                retries: 3
+
+          networks:
+            app_internal:
+              external: true
+
+    - name: Deploy Redis
+      command: docker stack deploy -c /tmp/redis-compose.yml cache
+
+    # ──────────────────────────────────────────────────────────
+    # 4. Monitoring: Prometheus + Grafana + Loki + Alertmanager
+    # ──────────────────────────────────────────────────────────
+    - name: Create Prometheus config
+      copy:
+        dest: "{{ data_root }}/monitoring/prometheus/prometheus.yml"
+        content: |
+          global:
+            scrape_interval: 15s
+            evaluation_interval: 15s
+
+          rule_files:
+            - /etc/prometheus/rules/*.yml
+
+          alerting:
+            alertmanagers:
+              - static_configs:
+                  - targets: ['alertmanager:9093']
+
+          scrape_configs:
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+
+            - job_name: 'traefik'
+              static_configs:
+                - targets: ['traefik:8080']
+
+            - job_name: 'node-exporter'
+              dns_sd_configs:
+                - names: ['tasks.node-exporter']
+                  type: 'A'
+                  port: 9100
+
+            - job_name: 'cadvisor'
+              dns_sd_configs:
+                - names: ['tasks.cadvisor']
+                  type: 'A'
+                  port: 8080
+
+    - name: Create Grafana secrets
+      shell: |
+        echo "{{ grafana_admin_password }}" | docker secret create grafana_admin_password - 2>/dev/null || true
+
+    - name: Create Alertmanager config
+      copy:
+        dest: "{{ data_root }}/monitoring/alertmanager.yml"
+        content: |
+          global:
+            resolve_timeout: 5m
+
+          route:
+            group_by: ['alertname', 'cluster']
+            group_wait: 10s
+            group_interval: 5m
+            repeat_interval: 12h
+            receiver: 'telegram'
+
+          receivers:
+            - name: 'telegram'
+              telegram_configs:
+                - bot_token: '{{ alertmanager_telegram_token }}'
+                  chat_id: {{ alertmanager_telegram_chat_id }}
+                  message: |
+                    🚨 *{{ '{{' }} .GroupLabels.alertname {{ '}}' }}*
+                    {{ '{{' }} range .Alerts {{ '}}' }}
+                    *Status:* {{ '{{' }} .Status {{ '}}' }}
+                    *Description:* {{ '{{' }} .Annotations.description {{ '}}' }}
+                    {{ '{{' }} end {{ '}}' }}
+
+    - name: Create Monitoring compose
+      copy:
+        dest: /tmp/monitoring-compose.yml
+        content: |
+          version: '3.8'
+
+          services:
+            prometheus:
+              image: prom/prometheus:latest
+              command:
+                - '--config.file=/etc/prometheus/prometheus.yml'
+                - '--storage.tsdb.path=/prometheus'
+                - '--storage.tsdb.retention.time=30d'
+                - '--web.console.libraries=/etc/prometheus/console_libraries'
+                - '--web.console.templates=/etc/prometheus/consoles'
+                - '--web.enable-lifecycle'
+              volumes:
+                - {{ data_root }}/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+                - {{ data_root }}/monitoring/prometheus:/prometheus
+              networks:
+                - proxy_public
+                - app_internal
+              deploy:
+                replicas: 1
+                placement:
+                  constraints:
+                    - node.role == manager
+                labels:
+                  - "traefik.enable=true"
+                  - "traefik.http.routers.prometheus.rule=Host(`prometheus.{{ domain }}`)"
+                  - "traefik.http.routers.prometheus.entrypoints=https"
+                  - "traefik.http.routers.prometheus.tls.certresolver=le"
+                  - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+                  - "traefik.swarm.network=proxy_public"
+
+            grafana:
+              image: grafana/grafana:latest
+              volumes:
+                - {{ data_root }}/monitoring/grafana:/var/lib/grafana
+              networks:
+                - proxy_public
+                - app_internal
+              secrets:
+                - grafana_admin_password
+              environment:
+                - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_admin_password
+                - GF_SERVER_ROOT_URL=https://grafana.{{ domain }}
+                - GF_USERS_ALLOW_SIGN_UP=false
+                - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+              deploy:
+                replicas: 1
+                placement:
+                  constraints:
+                    - node.role == manager
+                labels:
+                  - "traefik.enable=true"
+                  - "traefik.http.routers.grafana.rule=Host(`grafana.{{ domain }}`)"
+                  - "traefik.http.routers.grafana.entrypoints=https"
+                  - "traefik.http.routers.grafana.tls.certresolver=le"
+                  - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+                  - "traefik.swarm.network=proxy_public"
+
+            loki:
+              image: grafana/loki:latest
+              command: -config.file=/etc/loki/loki-config.yml
+              volumes:
+                - {{ data_root }}/monitoring/loki:/loki
+              networks:
+                - app_internal
+              deploy:
+                replicas: 1
+                placement:
+                  constraints:
+                    - node.role == manager
+
+            promtail:
+              image: grafana/promtail:latest
+              command: -config.file=/etc/promtail/promtail-config.yml
+              volumes:
+                - /var/log:/var/log:ro
+                - /var/lib/docker/containers:/var/lib/docker/containers:ro
+                - /var/run/docker.sock:/var/run/docker.sock:ro
+              networks:
+                - app_internal
+              deploy:
+                mode: global
+
+            alertmanager:
+              image: prom/alertmanager:latest
+              volumes:
+                - {{ data_root }}/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+              networks:
+                - app_internal
+                - proxy_public
+              deploy:
+                replicas: 1
+                placement:
+                  constraints:
+                    - node.role == manager
+                labels:
+                  - "traefik.enable=true"
+                  - "traefik.http.routers.alertmanager.rule=Host(`alerts.{{ domain }}`)"
+                  - "traefik.http.routers.alertmanager.entrypoints=https"
+                  - "traefik.http.routers.alertmanager.tls.certresolver=le"
+                  - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
+                  - "traefik.swarm.network=proxy_public"
+
+            node-exporter:
+              image: prom/node-exporter:latest
+              command:
+                - '--path.rootfs=/host'
+                - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+              volumes:
+                - /:/host:ro,rslave
+              networks:
+                - app_internal
+              deploy:
+                mode: global
+
+            cadvisor:
+              image: gcr.io/cadvisor/cadvisor:latest
+              volumes:
+                - /:/rootfs:ro
+                - /var/run:/var/run:ro
+                - /sys:/sys:ro
+                - /var/lib/docker:/var/lib/docker:ro
+              networks:
+                - app_internal
+              deploy:
+                mode: global
+
+          networks:
+            proxy_public:
+              external: true
+            app_internal:
+              external: true
+
+          secrets:
+            grafana_admin_password:
+              external: true
+
+    - name: Deploy Monitoring stack
+      command: docker stack deploy -c /tmp/monitoring-compose.yml monitoring
+
+    # ── Done ──────────────────────────────────────────────────
+    - name: Wait for services to start
+      pause:
+        seconds: 30
+
+    - name: Done
+      debug:
+        msg: |
+          ✅ Tier 2 Platform deployed!
+          MinIO:        https://minio.{{ domain }}
+          S3 API:       https://s3.{{ domain }}
+          Grafana:      https://grafana.{{ domain }}
+          Prometheus:   https://prometheus.{{ domain }}
+          Alertmanager: https://alerts.{{ domain }}
+          Database:     Internal (app_internal network)
+          Redis:        Internal (app_internal network)

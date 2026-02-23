@@ -379,6 +379,62 @@ var serviceRemoveCmd = &cobra.Command{
 }
 
 // ──────────────────────────────────────────────
+// swarm-ctl service update
+// ──────────────────────────────────────────────
+var (
+	svcUpdateImage string
+	svcUpdateReplicas int
+)
+
+var serviceUpdateCmd = &cobra.Command{
+	Use:   "update [service-name]",
+	Short: "Update service (rolling update, zero-downtime)",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		cluster, err := cfg.GetCurrentCluster()
+		if err != nil {
+			return err
+		}
+
+		client := ssh.NewClient(cluster.MasterIP, cluster.SSHUser, cluster.SSHKey)
+		if err := client.Connect(); err != nil {
+			return err
+		}
+		defer client.Close()
+
+		serviceName := args[0]
+		var updateArgs []string
+
+		if svcUpdateImage != "" {
+			updateArgs = append(updateArgs, "--image "+svcUpdateImage)
+			fmt.Printf("🔄 Updating %s → image: %s\n", serviceName, svcUpdateImage)
+		}
+		if svcUpdateReplicas > 0 {
+			updateArgs = append(updateArgs, fmt.Sprintf("--replicas %d", svcUpdateReplicas))
+			fmt.Printf("🔄 Updating %s → replicas: %d\n", serviceName, svcUpdateReplicas)
+		}
+
+		if len(updateArgs) == 0 {
+			return fmt.Errorf("chỉ định ít nhất --image hoặc --replicas")
+		}
+
+		cmd2 := fmt.Sprintf("docker service update %s %s",
+			strings.Join(updateArgs, " "), serviceName)
+		output, err := client.Run(cmd2)
+		if err != nil {
+			return fmt.Errorf("update thất bại: %w\n%s", err, output)
+		}
+		fmt.Println(output)
+		fmt.Println(ui.RenderSuccess(fmt.Sprintf("Service %s đã được update (rolling)", serviceName)))
+		return nil
+	},
+}
+
+// ──────────────────────────────────────────────
 // swarm-ctl service rollback
 // ──────────────────────────────────────────────
 var serviceRollbackCmd = &cobra.Command{
@@ -435,10 +491,15 @@ func init() {
 	serviceAddCmd.MarkFlagRequired("domain")
 	serviceAddCmd.MarkFlagRequired("port")
 
+	// service update flags
+	serviceUpdateCmd.Flags().StringVar(&svcUpdateImage, "image", "", "Docker image mới (vd: nginx:1.25)")
+	serviceUpdateCmd.Flags().IntVar(&svcUpdateReplicas, "replicas", 0, "Số replicas mới")
+
 	// Register subcommands
 	serviceCmd.AddCommand(serviceAddCmd)
 	serviceCmd.AddCommand(serviceDeployCmd)
 	serviceCmd.AddCommand(serviceScaleCmd)
+	serviceCmd.AddCommand(serviceUpdateCmd)
 	serviceCmd.AddCommand(serviceListCmd)
 	serviceCmd.AddCommand(serviceLogsCmd)
 	serviceCmd.AddCommand(serviceRemoveCmd)
