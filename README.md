@@ -28,11 +28,11 @@
 **Chỉ cần cung cấp SSH key → Tool tự động làm mọi thứ còn lại.**
 
 ```bash
-# 1. Khởi tạo toàn bộ cluster tự động (Docker + Swarm + Traefik + Monitoring)
+# 1. Khởi tạo Kẻ Gác Cổng (Traefik Router + Portainer)
 swarm-ctl cluster init --master 10.0.0.1 --key ~/.ssh/id_rsa --domain softty.net
 
-# 2. Triển khai Ứng dụng mẫu Mã nguồn mở từ Marketplace
-swarm-ctl app install nocodb --domain data.softty.net
+# 2. Triển khai Ứng dụng Bất Kỳ thông qua App Bundle (Thư mục YML + Secrets)
+swarm-ctl app deploy ./my-mariadb-bundle --name mariadb_prod
 
 # 3. Theo dõi toàn cảnh Sức khỏe Cluster thông qua TUI màu sắc
 swarm-ctl dashboard
@@ -90,14 +90,12 @@ sudo mv swarm-ctl /usr/local/bin/
 
 Tool phân chia Cluster thành **3 Tier (3 Lớp mạng)**. Ngay khi lệnh `cluster init` thành công, các dịch vụ này tự động chạy ẩn:
 
-1. **Tier 1 (Hạ tầng - Ingress):**
-   - Traefik: Cổng Router, Load Balancer tự động cấp HTTPS (Let's Encrypt).
-   - Portainer: Giao diện web quản lý Docker.
-2. **Tier 2 (Platform - Dữ liệu vĩnh viễn):**
-   - **Database & Cache:** MariaDB Galera (CSDL rập khuôn), Redis Sentinel.
-   - **Lưu trữ:** MinIO (Private S3 Cloud).
-   - **Giám sát (Observability Stack):** Prometheus (Metrics) + Grafana (Dashboard) + Loki (Gom Logs) + Alertmanager.
-3. **Tier 3 (Applications):** Chứa các App do bạn tự Deploy (Wordpress, Web, NodeJS, API...).
+1. **Tier 1 (Hạ tầng Lõi - Infrastructure):**
+   - **Traefik Proxy:** Cổng Router, Auto-HTTPS (Let's Encrypt), Rate-limit, Security Headers Enterprise.
+   - **Portainer GUI:** Giao diện điều khiển Trực quan.
+2. **Tier 2 (Nền tảng Tự do - App Bundle Pipeline):**
+   - Tool `swarm-ctl` nay đã **trả lại 100% quyền kiểm soát Ứng dụng** cho Nhà Quản Trị. 
+   - Từ Database (MariaDB, PostgreSQL) đến Lưu trữ (Minio) hay Dịch vụ Kênh Chat. Administrator chỉ cần tự thiết kế các Thư Mục Cấu hình (App Bundle) và vứt cho lệnh `swarm-ctl app deploy` để Engine tự đóng gói ném thẳng lên Server. Mọi thứ trong suốt và phi trạng thái!
 
 ---
 
@@ -115,19 +113,26 @@ Tool phân chia Cluster thành **3 Tier (3 Lớp mạng)**. Ngay khi lệnh `clu
 
 ---
 
-## 🛒 Chợ Ứng Dụng (1-Click Marketplace)
+## 📂 Mô Hình Triển Khai App Bundle (Kiến trúc Thay Thế Marketplace)
 
-Với hơn 15+ phần mềm Enterprise/Open-source nổi tiếng. Bạn không cần tự viết `docker-compose`. Chỉ cần gõ:
-```bash
-swarm-ctl app list
-swarm-ctl app install [tên-app] --domain sub.congty.com
+Thay vì bó buộc bạn vào một vài Ứng dụng "Cứng ngắc", `swarm-ctl v3.0` trình làng phương pháp **App Bundle Deployment**. Bạn đóng gói sẵn mã nguồn/file thiết kế vào một Thư mục máy cá nhân, Tool sẽ tự nén, mã hóa, vận chuyển qua SSH và dựng thành Hệ thống trên Cụm.
+
+Cấu trúc Bundle Chuẩn Mực của một Ứng Dụng:
+```text
+my-minio-bundle/
+├── docker-compose.yml       # Khung xương kiến trúc
+├── .env                     # Khai báo các biến tự động ($DOMAIN)
+└── secrets/
+    ├── minio_root_user.txt  # Dữ liệu nhạy cảm được nhét cực kín vào Swarm-Secrets (KHÔNG lưu txt lên RAM public)
+    └── minio_root_pass.txt
 ```
 
-Một số App đỉnh nhất tích hợp sẵn:
-* **Tự động hóa:** `n8n` (Chuẩn Zapier)
-* **Website & CMS:** `wordpress`, `ghost`
-* **Công cụ nội bộ:** `nocodb` (Airtable-like), `metabase` (Trực quan Data), `nextcloud` (Google Drive tự cài).
-* **Bảo mật & Dev:** `vaultwarden` (Quản lý Mật khẩu), `gitea` (Trạm Code nội bộ), `uptime-kuma` (Đo Ping Web).
+Deploy lên Production đơn giản bằng 1 nốt nhạc:
+```bash
+swarm-ctl app deploy /home/products/my-minio-bundle --name minio_storage
+```
+
+Để xem các Ví dụ kinh điển (Starter-Kit), vui lòng tham khảo [examples/README.md](examples/README.md)!
 
 ---
 
@@ -196,9 +201,7 @@ swarm-ctl
 │   ├── restore  BACKUP-ID
 │   ├── list
 ├── app
-│   ├── list     (Trình chiếu Marketplace)
-│   ├── install  APP-ID [--domain DOMAIN] [--node HOSTNAME]
-│   └── remove   APP-ID
+│   └── deploy   THU_MUC_BUNDLE [--name SERVICE_NAME]
 ├── dashboard    (Live Terminal UI)
 ├── audit        (Xem nhật ký thao tác)
 └── version
