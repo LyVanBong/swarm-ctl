@@ -44,14 +44,14 @@
                 - "--providers.swarm.endpoint=unix:///var/run/docker.sock"
                 - "--entrypoints.http.address=:80"
                 - "--entrypoints.https.address=:443"
-                - "--entrypoints.http.http.redirections.entrypoint.to=https"
-                - "--entrypoints.http.http.redirections.entrypoint.scheme=https"
-                # Cấu hình HTTPS bảo mật bằng ACME TLS Challenge Default (Vì không dùng Cloudflare Token)
-                - "--certificatesresolvers.le.acme.tlschallenge=true"
-                - "--certificatesresolvers.le.acme.email={{ acme_email }}"
-                - "--certificatesresolvers.le.acme.storage=/certificates/acme.json"
-                - "--entrypoints.https.http.tls.options=secure-tls-options@docker"
-                - "--serverstransport.insecureSkipVerify=true"
+                # Disable HTTPS/TLS for Cloudflare Flexible Mode
+                # - "--entrypoints.http.http.redirections.entrypoint.to=https"
+                # - "--entrypoints.http.http.redirections.entrypoint.scheme=https"
+                # - "--certificatesresolvers.le.acme.tlschallenge=true"
+                # - "--certificatesresolvers.le.acme.email={{ acme_email }}"
+                # - "--certificatesresolvers.le.acme.storage=/certificates/acme.json"
+                # - "--entrypoints.https.http.tls.options=secure-tls-options@docker"
+                # - "--serverstransport.insecureSkipVerify=true"
                 - "--metrics.prometheus=true"
                 - "--metrics.prometheus.addRoutersLabels=true"
               ports:
@@ -90,17 +90,14 @@
                   # Basic Dashboard Routing
                   - "traefik.enable=true"
                   - "traefik.http.routers.traefik.rule=Host(`traefik.{{ domain }}`)"
-                  - "traefik.http.routers.traefik.entrypoints=https"
-                  - "traefik.http.routers.traefik.tls=true"
-                  - "traefik.http.routers.traefik.tls.certresolver=le"
+                  - "traefik.http.routers.traefik.entrypoints=http"
                   - "traefik.http.routers.traefik.service=api@internal"
                   - "traefik.http.routers.traefik.middlewares=security-headers,ratelimit,dashboard-auth"
                   - "traefik.http.middlewares.dashboard-auth.basicauth.users=admin:$$apr1$$WbKmV.3h$$n1BAl6Y1.Hh/44oYkto011"
                   - "traefik.http.services.traefik-svc.loadbalancer.server.port=8080"
                   - "traefik.swarm.network=proxy_public"
                   # Secure TLS Definition
-                  - "traefik.tls.options.secure-tls-options.minversion=VersionTLS12"
-                  - "traefik.tls.options.secure-tls-options.ciphersuites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256"
+                  # TLS Options Removed for HTTP-only
               healthcheck:
                 test: ["CMD", "traefik", "healthcheck", "--ping"]
                 interval: 30s
@@ -185,9 +182,8 @@
                     - node.role == manager
                 labels:
                   - "traefik.enable=true"
-                  - "traefik.http.routers.portainer.rule=Host(`portainer.{{ domain }}`)"
-                  - "traefik.http.routers.portainer.entrypoints=https"
-                  - "traefik.http.routers.portainer.tls.certresolver=le"
+                  - "traefik.http.routers.portainer.rule=Host(`infra.{{ domain }}`)"
+                  - "traefik.http.routers.portainer.entrypoints=http"
                   - "traefik.http.routers.portainer.middlewares=security-headers,ratelimit"
                   - "traefik.http.services.portainer.loadbalancer.server.port=9443"
                   - "traefik.http.services.portainer.loadbalancer.server.scheme=https"
@@ -214,11 +210,11 @@
             # Dummy service để tạo global middlewares
             _middlewares:
               image: alpine:latest
-              command: ["echo", "middlewares"]
+              command: ["tail", "-f", "/dev/null"]
               networks:
                 - proxy_public
               deploy:
-                replicas: 0
+                replicas: 1
                 labels:
                   # Rate limiting
                   - "traefik.http.middlewares.ratelimit.ratelimit.average=100"

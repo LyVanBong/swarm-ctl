@@ -306,7 +306,7 @@ Ví dụ:
 		fmt.Println(ui.RenderStep(1, 3, "Cập nhật routing Traefik Dashboard..."))
 		traefikCmd := fmt.Sprintf(
 			`docker service update `+
-				`--label-add "traefik.http.routers.traefik.rule=Host(%s)" `+
+				`--label-add 'traefik.http.routers.traefik.rule=Host(%s)' `+
 				`traefik_traefik --quiet 2>&1`,
 			"`"+traefikHost+"`")
 		if _, err := client.Run(traefikCmd); err != nil {
@@ -319,7 +319,7 @@ Ví dụ:
 		fmt.Println(ui.RenderStep(2, 3, "Cập nhật routing Portainer..."))
 		portainerCmd := fmt.Sprintf(
 			`docker service update `+
-				`--label-add "traefik.http.routers.portainer.rule=Host(%s)" `+
+				`--label-add 'traefik.http.routers.portainer.rule=Host(%s)' `+
 				`portainer_portainer --quiet 2>&1`,
 			"`"+portainerHost+"`")
 		if _, err := client.Run(portainerCmd); err != nil {

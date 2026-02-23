@@ -87,7 +87,7 @@ func (c *Cluster) GetTraefikHost() string {
 func (c *Cluster) GetPortainerHost() string {
 	sub := c.Subdomains.Portainer
 	if sub == "" {
-		sub = "portainer"
+		sub = "infra"
 	}
 	return sub + "." + c.Domain
 }

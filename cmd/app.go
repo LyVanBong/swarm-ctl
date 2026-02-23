@@ -12,6 +12,7 @@ import (
 	"github.com/LyVanBong/swarm-ctl/internal/ui"
 	"github.com/bramvdbogaerde/go-scp"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var appCmd = &cobra.Command{
@@ -27,6 +28,7 @@ var appDeployCmd = &cobra.Command{
 	Use:   "deploy [FOLDER_PATH]",
 	Short: "Triển khai một ứng dụng Bundle (có docker-compose.yml)",
 	Args:  cobra.ExactArgs(1),
+
 	RunE: func(cmd *cobra.Command, args []string) error {
 		folderPath := args[0]
 		absPath, err := filepath.Abs(folderPath)
@@ -105,6 +107,33 @@ var appDeployCmd = &cobra.Command{
 
 		deployScript := fmt.Sprintf(`cd %s && tar -xzf bundle.tar.gz && rm bundle.tar.gz && %s docker stack deploy --with-registry-auth %s %s`,
 			remoteDir, envInjection, composeArgs, appName)
+
+		// Extract and create volumes
+		composeData, err := os.ReadFile(filepath.Join(absPath, "docker-compose.yml"))
+		if err == nil {
+			type Compose struct {
+				Volumes map[string]struct {
+					DriverOpts map[string]string `yaml:"driver_opts"`
+				} `yaml:"volumes"`
+			}
+			var c Compose
+			if err := yaml.Unmarshal(composeData, &c); err == nil {
+				for _, v := range c.Volumes {
+					if v.DriverOpts != nil {
+						device := v.DriverOpts["device"]
+						if device != "" {
+							// Replace DATA_ROOT variable
+							parsedPath := strings.ReplaceAll(device, "${DATA_ROOT}", cluster.DataRoot)
+							parsedPath = strings.ReplaceAll(parsedPath, "$DATA_ROOT", cluster.DataRoot)
+							if strings.HasPrefix(parsedPath, "/") {
+								fmt.Printf("📂 Tạo thư mục Local Volume: %s\n", parsedPath)
+								client.Run(fmt.Sprintf("mkdir -p %s", parsedPath))
+							}
+						}
+					}
+				}
+			}
+		}
 
 		output, err := client.Run(deployScript)
 		if err != nil {
