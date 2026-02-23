@@ -3,8 +3,11 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
 permissions:
   contents: write
@@ -28,9 +31,9 @@ jobs:
           - goos: darwin
             goarch: arm64
             suffix: darwin-arm64
-          - goos: windows
-            goarch: amd64
-            suffix: windows-amd64.exe
+          - goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +50,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           go build \
-            -ldflags="-s -w -X github.com/LyVanBong/swarm-ctl/cmd.Version=${{ github.ref_name }}" \
+            -ldflags="-s -w -X github.com/LyVanBong/swarm-ctl/cmd.Version=${GITHUB_SHA::7} -X github.com/LyVanBong/swarm-ctl/cmd.BuildDate=$(date -u +%Y-%m-%d)" \
             -o swarm-ctl-${{ matrix.suffix }} .
 
       - name: Upload artifact
@@ -71,7 +74,10 @@ jobs:
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         with:
+          tag_name: "release-${{ github.sha }}"
+          name: "Automated Release (${{ github.sha }})"
           files: artifacts/*
           generate_release_notes: true
           draft: false
