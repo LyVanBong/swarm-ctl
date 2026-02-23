@@ -146,10 +146,59 @@ var appInstallCmd = &cobra.Command{
 	},
 }
 
+// ──────────────────────────────────────────────
+// swarm-ctl app remove
+// ──────────────────────────────────────────────
+var appRemoveCmd = &cobra.Command{
+	Use:   "remove [APP_ID]",
+	Aliases: []string{"rm"},
+	Short: "Gỡ bỏ hoàn toàn một ứng dụng khỏi cụm Server",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		appID := args[0]
+		
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		cluster, err := cfg.GetCurrentCluster()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(ui.Banner.Render(fmt.Sprintf("🗑️  REMOVING APP: %s", appID)))
+
+		client := ssh.NewClient(cluster.MasterIP, cluster.SSHUser, cluster.SSHKey)
+		if err := client.Connect(); err != nil {
+			return err
+		}
+		defer client.Close()
+
+		fmt.Printf("Đang yêu cầu hệ thống tháo rỡ Service '%s' trên toàn bộ các Server...\n", appID)
+		
+		// Gỡ Stack Deploy của App
+		output, err := client.Run(fmt.Sprintf("docker stack rm %s", appID))
+		if err != nil {
+			return fmt.Errorf("không thể gỡ ứng dụng %s: %w\n%s", appID, err, output)
+		}
+
+		// (Tùy chọn bổ sung): Dọn luôn rác Folder chứa file YML cấu hình
+		remoteDir := fmt.Sprintf("/opt/swarm-ctl-apps/%s", appID)
+		client.Run(fmt.Sprintf("rm -rf %s", remoteDir))
+
+		fmt.Println()
+		fmt.Println(ui.RenderSuccess(fmt.Sprintf("Toàn bộ Container của '%s' đã ngắt điện trơn tru!", appID)))
+		fmt.Println(ui.RenderWarning(fmt.Sprintf("Lưu ý: Dữ liệu (Database Volumes) của App vẫn được giữ lại tại ổ cứng máy chủ phòng trường hợp bạn cài lại. Xóa Volume thủ công nếu muốn xóa sạch: docker volume rm %s_...", appID)))
+
+		return nil
+	},
+}
+
 func init() {
 	appInstallCmd.Flags().StringVarP(&appDomain, "domain", "d", "", "Tên miền gắn cho ứng dụng")
 	appInstallCmd.Flags().StringVarP(&appNode, "node", "n", "", "Chỉ định Node (Hostname) cụ thể để chạy App")
 	
 	appCmd.AddCommand(appListCmd)
 	appCmd.AddCommand(appInstallCmd)
+	appCmd.AddCommand(appRemoveCmd)
 }

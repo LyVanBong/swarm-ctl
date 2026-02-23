@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -250,6 +251,71 @@ var clusterUpgradeCmd = &cobra.Command{
 	},
 }
 
+// ──────────────────────────────────────────────
+// swarm-ctl cluster destroy
+// ──────────────────────────────────────────────
+var clusterDestroyForce bool
+
+var clusterDestroyCmd = &cobra.Command{
+	Use:   "destroy",
+	Short: "Dọn dẹp TRẮNG TINH mọi thứ, đưa Server về trạng thái ban đầu",
+	Long: `Lệnh này sẽ ĐẬP ĐI LÀM LẠI mạng lưới của bạn:
+  1. Xóa toàn bộ Services & Containers.
+  2. Gỡ bỏ Swarm Cluster (Leave --force).
+  3. Gỡ cài đặt Docker Engine và xóa Data.
+  4. Trả lại con VPS sạch sẽ như mới Mua.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if !clusterDestroyForce {
+			fmt.Println(ui.RenderWarning(`CẢNH BÁO NGUY HIỂM TỘT ĐỘ:
+Lệnh này sẽ XÓA SẠCH toàn bộ Database, Web, Appwrite và mọi thiết lập của bạn.
+Mọi máy chủ VPS của bạn sẽ bị Format sạch sẽ trở lại như lúc mới mua.
+
+Nếu bạn thực sự chắc chắn muốn XÓA BÌNH LÀM LẠI, hãy chạy thêm cờ --force:
+  swarm-ctl cluster destroy --force`))
+			return nil
+		}
+
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		cluster, err := cfg.GetCurrentCluster()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(ui.Banner.Render(`💥 CLUSTER SELF-DESTRUCT SEQUENCE INITIATED 💥`))
+
+		client := ssh.NewClient(cluster.MasterIP, cluster.SSHUser, cluster.SSHKey)
+		if err := client.Connect(); err != nil {
+			return err
+		}
+		defer client.Close()
+
+		fmt.Println(ui.RenderStep(1, 4, "Đang Xóa toàn bộ Cụm Swarm và Services..."))
+		client.Run("docker swarm leave --force")
+
+		fmt.Println(ui.RenderStep(2, 4, "Đang Gỡ cài đặt Docker & Dọn Container..."))
+		client.Run("apt-get purge -y docker-ce docker-ce-cli containerd.io && apt-get autoremove -y")
+
+		fmt.Println(ui.RenderStep(3, 4, "Đang Xóa Volume và Mạng Nội bộ (Storage)..."))
+		client.Run("rm -rf /var/lib/docker && rm -rf /opt/swarm-ctl* && rm -rf " + cluster.DataRoot)
+
+		// Tháo cluster ra khỏi máy Local
+		fmt.Println(ui.RenderStep(4, 4, "Xóa Thông tin Cluster trên máy vận hành (Locally)..."))
+		configPath := filepath.Join(os.Getenv("HOME"), ".swarm-ctl", "config.yml")
+		if err := os.Remove(configPath); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+
+		fmt.Println()
+		fmt.Println(ui.RenderSuccess("QUÁ TRÌNH PHỦI BỤI HOÀN TẤT. Hệ thống đã trở về cát bụi."))
+		fmt.Println("Bây giờ bạn có thể thử chạy `swarm-ctl cluster init` để Setup lại Cụm Mới!")
+
+		return nil
+	},
+}
+
 func init() {
 	// cluster init flags
 	clusterInitCmd.Flags().StringVarP(&initMasterIP, "master", "m", "", "IP address của master node (bắt buộc)")
@@ -267,6 +333,9 @@ func init() {
 	clusterCmd.AddCommand(clusterInitCmd)
 	clusterCmd.AddCommand(clusterStatusCmd)
 	clusterCmd.AddCommand(clusterUpgradeCmd)
+	clusterCmd.AddCommand(clusterDestroyCmd)
+	
+	clusterDestroyCmd.Flags().BoolVarP(&clusterDestroyForce, "force", "f", false, "Đồng ý xóa dữ liệu ngay lập tức")
 }
 
 // getPlaybooksDir trả về đường dẫn tới Ansible playbooks

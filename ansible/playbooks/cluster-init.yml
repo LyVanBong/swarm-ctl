@@ -48,6 +48,38 @@
         - { name: "vm.max_map_count", value: "262144" }
         - { name: "fs.file-max", value: "65536" }
 
+    # ── 1.5. Configure UFW Firewall ──────────────────────────
+    - name: Configure UFW default deny incoming
+      ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+    - name: Allow essential SSH & Web ports
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "22"
+        - "80"
+        - "443"
+
+    - name: Allow internal Docker Swarm ports
+      ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+      loop:
+        - { port: "2377", proto: "tcp" }
+        - { port: "7946", proto: "tcp" }
+        - { port: "7946", proto: "udp" }
+        - { port: "4789", proto: "udp" }
+
+    - name: Allow Docker networks routing
+      command: ufw route allow
+      ignore_errors: true
+
     # ── 2. Install Docker ────────────────────────────────────
     - name: Add Docker GPG key
       apt_key:
