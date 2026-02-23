@@ -32,7 +32,7 @@
 
           services:
             traefik:
-              image: traefik:v3.3
+              image: traefik:v3.6
               command:
                 - "--api.dashboard=true"
                 - "--log.level=INFO"
