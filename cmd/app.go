@@ -41,6 +41,7 @@ var appListCmd = &cobra.Command{
 }
 
 var appDomain string
+var appNode string
 
 var appInstallCmd = &cobra.Command{
 	Use:   "install [APP_ID]",
@@ -86,7 +87,10 @@ var appInstallCmd = &cobra.Command{
 		fmt.Printf("  Tên miền: %s\n\n", ui.Info.Render(domain))
 
 		// Render YAML
-		appCfg := catalog.AppConfig{Domain: domain}
+		appCfg := catalog.AppConfig{
+			Domain: domain,
+			Node:   appNode,
+		}
 		yamlStr, err := catalog.GenerateYaml(appID, appCfg)
 		if err != nil {
 			return fmt.Errorf("lỗi sinh cấu hình compose: %w", err)
@@ -144,6 +148,7 @@ var appInstallCmd = &cobra.Command{
 
 func init() {
 	appInstallCmd.Flags().StringVarP(&appDomain, "domain", "d", "", "Tên miền gắn cho ứng dụng")
+	appInstallCmd.Flags().StringVarP(&appNode, "node", "n", "", "Chỉ định Node (Hostname) cụ thể để chạy App")
 	
 	appCmd.AddCommand(appListCmd)
 	appCmd.AddCommand(appInstallCmd)

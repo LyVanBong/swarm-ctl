@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"text/template"
+
+	"gopkg.in/yaml.v3"
 )
 
 // App mô tả một ứng dụng có sẵn trong thư viện Store
@@ -18,6 +20,7 @@ type App struct {
 // Config cấu hình nhập khi cài đặt
 type AppConfig struct {
 	Domain string
+	Node   string // Tên Node cụ thể muốn Deploy
 }
 
 // GetCatalog trả về danh sách phong phú các Apps (Top Open Source)
@@ -670,5 +673,46 @@ func GenerateYaml(id string, config AppConfig) (string, error) {
 		return "", err
 	}
 
-	return buf.String(), nil
+	// Nếu user không chỉ định Node, trả về nguyên mẫu
+	if config.Node == "" {
+		return buf.String(), nil
+	}
+
+	// Nếu có chỉ định Node, tự động chèn constraint vào tất cả các services
+	var root map[string]interface{}
+	if err := yaml.Unmarshal(buf.Bytes(), &root); err != nil {
+		return "", err
+	}
+
+	if svcsRaw, ok := root["services"]; ok {
+		if services, ok := svcsRaw.(map[string]interface{}); ok {
+			for _, svcObj := range services {
+				svc, ok := svcObj.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				deployObj, ok := svc["deploy"].(map[string]interface{})
+				if !ok {
+					deployObj = make(map[string]interface{})
+					svc["deploy"] = deployObj
+				}
+
+				placementObj, ok := deployObj["placement"].(map[string]interface{})
+				if !ok {
+					placementObj = make(map[string]interface{})
+					deployObj["placement"] = placementObj
+				}
+
+				placementObj["constraints"] = []string{fmt.Sprintf("node.hostname == %s", config.Node)}
+			}
+		}
+	}
+
+	finalBytes, err := yaml.Marshal(root)
+	if err != nil {
+		return "", err
+	}
+
+	return string(finalBytes), nil
 }
