@@ -50,8 +50,8 @@
                 - minio_root_user
                 - minio_root_password
               environment:
-                - MINIO_ROOT_USER_FILE=/run/secrets/minio_root_user
-                - MINIO_ROOT_PASSWORD_FILE=/run/secrets/minio_root_password
+                - MINIO_ROOT_USER={{ minio_root_user }}
+                - MINIO_ROOT_PASSWORD={{ minio_root_password }}
                 - MINIO_PROMETHEUS_AUTH_TYPE=public
               deploy:
                 replicas: 1
@@ -139,10 +139,10 @@
                 - mariadb_root_password
                 - mariadb_password
               environment:
-                - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mariadb_root_password
-                - MYSQL_DATABASE={{ mariadb_database }}
-                - MYSQL_USER={{ mariadb_user }}
-                - MYSQL_PASSWORD_FILE=/run/secrets/mariadb_password
+                - MARIADB_ROOT_PASSWORD={{ mariadb_root_password }}
+                - MARIADB_DATABASE={{ mariadb_database }}
+                - MARIADB_USER={{ mariadb_user }}
+                - MARIADB_PASSWORD={{ mariadb_password }}
                 - MARIADB_AUTO_UPGRADE=1
               deploy:
                 replicas: 1
@@ -290,6 +290,7 @@
           services:
             prometheus:
               image: prom/prometheus:latest
+              user: "root"
               command:
                 - '--config.file=/etc/prometheus/prometheus.yml'
                 - '--storage.tsdb.path=/prometheus'
@@ -318,6 +319,7 @@
 
             grafana:
               image: grafana/grafana:latest
+              user: "root"
               volumes:
                 - {{ data_root }}/monitoring/grafana:/var/lib/grafana
               networks:
@@ -345,6 +347,7 @@
 
             loki:
               image: grafana/loki:latest
+              user: "root"
               command: -config.file=/etc/loki/loki-config.yml
               volumes:
                 - {{ data_root }}/monitoring/loki:/loki
@@ -358,6 +361,7 @@
 
             promtail:
               image: grafana/promtail:latest
+              user: "root"
               command: -config.file=/etc/promtail/promtail-config.yml
               volumes:
                 - /var/log:/var/log:ro
@@ -370,6 +374,7 @@
 
             alertmanager:
               image: prom/alertmanager:latest
+              user: "root"
               volumes:
                 - {{ data_root }}/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
               networks:
