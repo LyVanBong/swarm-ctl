@@ -147,7 +147,7 @@ Ví dụ:
 
 		// ── Step 2-5: Ansible Playbook ──
 		fmt.Println(ui.RenderStep(2, totalSteps, steps[1]+"..."))
-		runner := ansible.NewRunner(getPlaybooksDir()).
+		runner := ansible.NewRunner(ansible.GetPlaybooksDir()).
 			WithHost(nodeAddIP, sshUser, keyPath).
 			WithVar("node_role", nodeAddRole).
 			WithVar("master_ip", cluster.MasterIP).

@@ -184,7 +184,7 @@ Ví dụ:
 		fmt.Println(ui.Banner.Render("📂 SETUP GLUSTERFS REPLICATED STORAGE"))
 		fmt.Printf("  Nodes: %s\n\n", ui.Info.Render(strings.Join(glusterNodes, ", ")))
 
-		runner := ansible.NewRunner(getPlaybooksDir())
+		runner := ansible.NewRunner(ansible.GetPlaybooksDir())
 		// Configure dynamic inventory for storage_nodes
 		for _, ip := range glusterNodes {
 			runner.WithHost(ip, cluster.SSHUser, cluster.SSHKey)

@@ -134,7 +134,7 @@ Ví dụ:
 
 		// ── Step 4: Run Ansible - Install Docker & Init Swarm ──
 		fmt.Println(ui.RenderStep(3, 6, "Cài đặt Docker và khởi tạo Swarm..."))
-		runner := ansible.NewRunner(getPlaybooksDir()).
+		runner := ansible.NewRunner(ansible.GetPlaybooksDir()).
 			WithHost(initMasterIP, initSSHUser, initSSHKey).
 			WithVar("data_root", initDataRoot).
 			WithVar("domain", initDomain).
@@ -357,16 +357,3 @@ func init() {
 	clusterDestroyCmd.Flags().BoolVarP(&clusterDestroyForce, "force", "f", false, "Đồng ý xóa dữ liệu ngay lập tức")
 }
 
-// getPlaybooksDir trả về đường dẫn tới Ansible playbooks
-// (được bundle cùng binary hoặc có thể override qua env)
-func getPlaybooksDir() string {
-	if dir := os.Getenv("SWARM_CTL_PLAYBOOKS"); dir != "" {
-		return dir
-	}
-	// Default: cùng thư mục với binary
-	exe, err := os.Executable()
-	if err != nil {
-		return "./ansible/playbooks"
-	}
-	return fmt.Sprintf("%s/../ansible/playbooks", exe)
-}

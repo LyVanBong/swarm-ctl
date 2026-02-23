@@ -1,12 +1,42 @@
 package ansible
 
 import (
+	"embed"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 )
+
+//go:embed playbooks/*
+var embeddedPlaybooks embed.FS
+
+// GetPlaybooksDir tự động bung file playbook nhúng trong app ra thư mục local để chạy
+func GetPlaybooksDir() string {
+	if override := os.Getenv("SWARM_CTL_PLAYBOOKS"); override != "" {
+		return override
+	}
+
+	// Đưa playbooks vào thư mục ẩn ~/.swarm-ctl/playbooks
+	destDir := filepath.Join(os.Getenv("HOME"), ".swarm-ctl", "playbooks_cache")
+	os.RemoveAll(destDir)
+	os.MkdirAll(destDir, 0755)
+
+	fs.WalkDir(embeddedPlaybooks, "playbooks", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		content, _ := fs.ReadFile(embeddedPlaybooks, path)
+		outPath := filepath.Join(destDir, path)
+		os.MkdirAll(filepath.Dir(outPath), 0755)
+		os.WriteFile(outPath, content, 0644)
+		return nil
+	})
+
+	return filepath.Join(destDir, "playbooks")
+}
 
 // Runner chạy Ansible playbooks
 type Runner struct {
