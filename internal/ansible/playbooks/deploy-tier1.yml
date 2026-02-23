@@ -35,6 +35,7 @@
               image: traefik:v3.6
               command:
                 - "--api.dashboard=true"
+                - "--ping=true"
                 - "--log.level=INFO"
                 - "--accesslog=true"
                 - "--providers.swarm=true"
