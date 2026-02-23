@@ -185,6 +185,12 @@ swarm-ctl
 * [Node Management](docs/runbooks/02-node-management.md) - Cách Add thêm máy ảo, thu hẹp ứng dụng, cách cập nhật Kernel Linux cho máy Worker Node an toàn.
 * [Service Updates](docs/runbooks/03-service-updates.md) - Cách deploy lại 1 app, tự động đổi mật khẩu Database (zero-downtime rotation), rollback phiên bản bị lỗi.
 
+## 🔗 Các Liên Kết Quan Trọng (Important Links)
+* [Kiến trúc Mô Hình Cluster](docs/architecture.md)
+* [Lịch sử Cập Nhật (CHANGELOG)](CHANGELOG.md)
+* [Hướng dẫn Đóng góp Mã nguồn (CONTRIBUTING)](CONTRIBUTING.md)
+* [Giấy phép MIT (LICENSE)](LICENSE)
+
 ## 📦 Công nghệ sử dụng
 ### Các nodes trong cluster
 - Ubuntu 20.04+ hoặc Debian 11+
@@ -207,3 +213,41 @@ MIT License — xem [LICENSE](LICENSE)
 
 **Tác giả**: [Ly Van Bong](https://github.com/LyVanBong)  
 **Website**: https://www.softty.net
+
+## 🚀 Các dịch vụ (Services) được triển khai mặc định
+
+Khi bạn chạy lệnh `swarm-ctl cluster init` để khởi tạo Cluster, `swarm-ctl` sẽ tự động thiết lập 2 nhóm dịch vụ (Tier 1 và Tier 2) chuẩn Enterprise để bạn có ngay hệ sinh thái hoàn chỉnh mà không cần cấu hình thủ công:
+
+### Tier 1: Hạ tầng (Infrastructure) - *Bắt buộc*
+* **Traefik (Gateway):** Router, Load Balancer siêu cấp tự động xin chứng chỉ SSL/TLS (Let's Encrypt) cho mọi tên miền. (Có trang Dashboard quản lý + Auth).
+* **Portainer (Management):** WebUI quản lý Docker/Swarm trực quan ngoài Dashboard CLI.
+* **Middlewares Security:** Thiết lập sẵn các bộ lọc chống Ddos (RateLimit), Security Headers ngăn chặn iFrame, XSS.
+
+### Tier 2: Dịch vụ nền tảng (Platform Services) - *Bắt buộc*
+* **MariaDB Database:** Hệ quản trị CSDL siêu tối ưu cho Production, thiết đặt sẵn tự động backup.
+* **Redis Cache:** Cache In-Memory và Session Storage tiêu chuẩn.
+* **MinIO (S3-compatible):** Server lưu trữ vệ tinh phân tán (Chứa file upload, ảnh, video của users).
+* **Monitoring Stack trọn bộ:**
+  * **Prometheus:** Gom metric (CPU, RAM, Network) toàn bộ cụm.
+  * **Grafana:** Vẽ biểu đồ giám sát Data real-time.
+  * **Loki & Promtail:** Thu gom Logs (Console Logs) của tất cả containers dồn về 1 mối tập trung. Không cần SSH vào từng node đọc log.
+  * **Alertmanager:** Server cấu hình kịch bản báo động tới Telegram/Slack khi hệ thống sập.
+
+## 💻 Yêu cầu hệ thống tối thiểu (System Requirements)
+
+Để chạy trơn tru kiến trúc bên trên, bạn cần chuẩn bị tài nguyên cơ bản (Cloud Server/VPS):
+
+### 1. Master/Manager Node (Tối thiểu 1 máy)
+Máy chứa Database, Monitoring và điều khiển Swarm.
+- **CPU:** Tối thiểu 2 vCores (Khuyến nghị 4 vCores cho production).
+- **RAM:** Tối thiểu 4GB (Khuyến nghị 8GB+ để chạy đủ MinIO, MariaDB, Prometheus).
+- **Disk:** Tối thiểu 50GB SSD/NVMe (Nên mở rộng >100GB nếu nạp lượng lớn File Upload).
+- **OS:** Linux (Ubuntu 20.04+, Debian 11+).
+
+### 2. Worker Nodes (Dành cho Ứng dụng/Web/API) - Có thể thêm sau
+Máy chuyên chạy ứng dụng (Backend, Frontend).
+- **CPU:** 1-2 vCores là đủ.
+- **RAM:** 2GB.
+- **OS:** Linux.
+
+*Lưu ý: Tất cả các máy tính cần kết nối qua Mạng LAN Nội bộ (Private IP) để tốc độ đồng bộ Cluster tối ưu nhất và giảm độ trễ (Latency).*
