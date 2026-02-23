@@ -138,9 +138,12 @@ Khi chạy các lệnh của `swarm-ctl`, có một vài tham số bắt buộc.
    * **Lấy ở đâu:** Trên máy tính cá nhân của bạn, key thường nằm ở thư mục ẩn:
      * Mac/Linux: `~/.ssh/id_rsa`
      * Windows: `C:\Users\TenBan\.ssh\id_rsa`
-   * *(Lưu ý: Nếu bạn kết nối VPS bằng Password, bạn cần phải sinh SSH Key bằng lệnh `ssh-keygen` và copy lên Server bằng lệnh `ssh-copy-id user@IP` trước khi dùng Tool này).*
 
-3. **`--domain` (Tên miền chính thức)**
+3. **`--pass` (Tự động Copy Khóa SSH)**
+   * **Nó là gì:** Nếu bạn thuê Máy ảo mới toanh, bạn thường chỉ nhận được `Root Password`. Nếu không truyền cờ `--pass`, bạn phải cài SSH thủ công bằng lệnh `ssh-copy-id`. Với cờ `--pass "MậtKhẩu"`, Tool sẽ thay bạn làm công việc cực nhọc đó một cách hoàn toàn tự động!
+   * **Lấy ở đâu:** Email cấp máy chủ từ nhà cung cấp Cloud.
+
+4. **`--domain` (Tên miền chính thức)**
    * **Nó là gì:** Tên website bạn dùng để dẫn khách truy cập vào Server (vd: `congtycuaban.com` hay `api.congty.vn`).
    * **Lấy ở đâu:** Bạn phải Đăng ký mua trên các trang bán Domain (Tenten, Namecheap, Cloudflare). Sau khi mua, bạn vào cấu hình DNS của Domain đó, tạo Record **A** (bao gồm cả wildcard `*.congtycuaban.com`) và trỏ IP về đúng số `--master IP` bên trên. Khi đó Traefik mới tự cấp chứng chỉ HTTPS cho bạn được.
 
@@ -155,11 +158,11 @@ Khi chạy các lệnh của `swarm-ctl`, có một vài tham số bắt buộc.
 ```text
 swarm-ctl
 ├── cluster
-│   ├── init     --master IP --key PATH --domain DOMAIN [--name NAME]
+│   ├── init     --master IP --domain DOMAIN [--pass PASSWORD]
 │   ├── status
 │   └── upgrade
 ├── node
-│   ├── add      --ip IP [--role worker|manager] [--label KEY=VAL]
+│   ├── add      --ip IP [--role worker|manager] [--pass PASSWORD]
 │   ├── remove   --ip IP [--force]
 │   ├── list
 │   └── ssh      IP
@@ -202,6 +205,7 @@ Tham khảo thêm các hướng dẫn cấu hình kỹ thuật sâu hơn tại t
 * [Khôi phục Thảm Họa (Disaster Recovery & Backup)](docs/runbooks/01-disaster-recovery.md) - Cứu hoả khi sập DB, sập toàn bộ Master.
 * [Quản lý Máy chủ (Node Management)](docs/runbooks/02-node-management.md) - Cách Add thêm máy ảo, cách cập nhật Kernel Linux an toàn.
 * [Cập nhật Dịch vụ (Service Updates)](docs/runbooks/03-service-updates.md) - Re-deploy, Rotate Mật khẩu không Downtime.
+* [Triển khai Thực chiến (End-to-end Tutorial)](docs/runbooks/04-end-to-end-tutorial.md) - ⭐️ BÀI TẬP VÍ DỤ: Cài đặt cụm 3 Máy, Phân tải Appwrite và Website!
 * [Kiến trúc Mô Hình Cluster](docs/architecture.md)
 * [Lịch sử Cập Nhật (CHANGELOG)](CHANGELOG.md)
 
