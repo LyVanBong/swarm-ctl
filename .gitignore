@@ -1,0 +1,30 @@
+# Binaries
+swarm-ctl
+swarm-ctl-*
+
+# Build artifacts
+dist/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Config (chứa thông tin nhạy cảm)
+.swarm-ctl/
+config.local.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

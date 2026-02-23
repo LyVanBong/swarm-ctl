@@ -1,0 +1,169 @@
+---
+# cluster-init.yml - Bootstrap toàn bộ Docker Swarm cluster từ đầu
+# Chạy bởi: swarm-ctl cluster init --master IP --domain DOMAIN
+
+- name: "🐳 Initialize Docker Swarm Cluster"
+  hosts: nodes
+  become: true
+  gather_facts: true
+
+  vars:
+    data_root: "/opt/data"
+    domain: ""
+    node_role: "manager"
+
+  tasks:
+
+    # ── 1. System Prerequisites ──────────────────────────────
+    - name: Install system packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - htop
+          - ntp
+          - ufw
+          - fail2ban
+        state: present
+        update_cache: true
+
+    - name: Configure NTP
+      service:
+        name: ntp
+        state: started
+        enabled: true
+
+    - name: Configure sysctl
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: true
+      loop:
+        - { name: "net.ipv4.ip_forward", value: "1" }
+        - { name: "net.bridge.bridge-nf-call-iptables", value: "1" }
+        - { name: "vm.max_map_count", value: "262144" }
+        - { name: "fs.file-max", value: "65536" }
+
+    # ── 2. Install Docker ────────────────────────────────────
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: >
+          deb [arch=amd64]
+          https://download.docker.com/linux/{{ ansible_distribution | lower }}
+          {{ ansible_distribution_release }} stable
+        state: present
+
+    - name: Install Docker Engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Configure Docker daemon
+      copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "log-driver": "json-file",
+            "log-opts": { "max-size": "100m", "max-file": "3" },
+            "live-restore": true
+          }
+
+    - name: Start Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # ── 3. Init Docker Swarm ─────────────────────────────────
+    - name: Check Swarm status
+      command: docker info --format '{{ "{{" }}.Swarm.LocalNodeState{{ "}}" }}'
+      register: swarm_state
+      changed_when: false
+
+    - name: Initialize Swarm
+      command: "docker swarm init --advertise-addr {{ inventory_hostname }}"
+      when: swarm_state.stdout != 'active'
+
+    # ── 4. Create Overlay Networks ───────────────────────────
+    - name: Create proxy_public network
+      command: >
+        docker network create
+        --driver overlay
+        --attachable
+        proxy_public
+      ignore_errors: true
+
+    - name: Create app_internal network
+      command: >
+        docker network create
+        --driver overlay
+        --attachable
+        app_internal
+      ignore_errors: true
+
+    - name: Create data_net network
+      command: >
+        docker network create
+        --driver overlay
+        data_net
+      ignore_errors: true
+
+    # ── 5. Create Data Directories ───────────────────────────
+    - name: Create all data directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ data_root }}"
+        - "{{ data_root }}/traefik/certs"
+        - "{{ data_root }}/portainer/data"
+        - "{{ data_root }}/appwrite/uploads"
+        - "{{ data_root }}/appwrite/imports"
+        - "{{ data_root }}/appwrite/cache"
+        - "{{ data_root }}/appwrite/config"
+        - "{{ data_root }}/appwrite/certificates"
+        - "{{ data_root }}/appwrite/functions"
+        - "{{ data_root }}/appwrite/sites"
+        - "{{ data_root }}/appwrite/builds"
+        - "{{ data_root }}/appwrite/mariadb"
+        - "{{ data_root }}/appwrite/redis"
+        - "{{ data_root }}/minio"
+        - "{{ data_root }}/monitoring/prometheus"
+        - "{{ data_root }}/monitoring/grafana"
+        - "{{ data_root }}/monitoring/loki"
+
+    # ── 6. Apply Manager Labels ──────────────────────────────
+    - name: Get node ID
+      command: docker info --format '{{ "{{" }}.Swarm.NodeID{{ "}}" }}'
+      register: node_id
+
+    - name: Label manager node
+      command: >
+        docker node update
+        --label-add role=manager
+        --label-add tier=infra
+        {{ node_id.stdout }}
+
+    - name: Done
+      debug:
+        msg: |
+          ✅ Docker Swarm đã được khởi tạo!
+          Node ID: {{ node_id.stdout }}
+          Domain: {{ domain }}
