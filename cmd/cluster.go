@@ -46,7 +46,6 @@ Quá trình này sẽ tự động:
   3. Khởi tạo Docker Swarm
   4. Tạo overlay networks
   5. Deploy Tier 1: Traefik + Portainer
-  6. Deploy Tier 2: MinIO + MariaDB Galera + Redis + Monitoring
 
 Ví dụ:
   swarm-ctl cluster init --master 10.0.0.1 --key ~/.ssh/id_rsa --domain example.com`,
@@ -302,10 +301,10 @@ var clusterDestroyCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if !clusterDestroyForce {
 			fmt.Println(ui.RenderWarning(`CẢNH BÁO NGUY HIỂM TỘT ĐỘ:
-Lệnh này sẽ XÓA SẠCH toàn bộ Database, Web, Appwrite và mọi thiết lập của bạn.
+Lệnh này sẽ XÓA SẠCH toàn bộ Services, Data và mọi thiết lập trên cluster.
 Mọi máy chủ VPS của bạn sẽ bị Format sạch sẽ trở lại như lúc mới mua.
 
-Nếu bạn thực sự chắc chắn muốn XÓA BÌNH LÀM LẠI, hãy chạy thêm cờ --force:
+Nếu bạn thực sự chắc chắn muốn XÓA VÀ LÀM LẠI, hãy chạy thêm cờ --force:
   swarm-ctl cluster destroy --force`))
 			return nil
 		}

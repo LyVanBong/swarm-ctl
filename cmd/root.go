@@ -62,6 +62,7 @@ func init() {
 	rootCmd.AddCommand(secretCmd)
 	rootCmd.AddCommand(backupCmd)
 	rootCmd.AddCommand(appCmd)
+	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(dashboardCmd)
 	rootCmd.AddCommand(versionCmd)
 }
