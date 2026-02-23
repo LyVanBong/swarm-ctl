@@ -46,18 +46,23 @@
                 - "--entrypoints.https.address=:443"
                 - "--entrypoints.http.http.redirections.entrypoint.to=https"
                 - "--entrypoints.http.http.redirections.entrypoint.scheme=https"
+                # Cấu hình HTTPS bảo mật bằng ACME TLS Challenge Default (Vì không dùng Cloudflare Token)
                 - "--certificatesresolvers.le.acme.tlschallenge=true"
                 - "--certificatesresolvers.le.acme.email={{ acme_email }}"
                 - "--certificatesresolvers.le.acme.storage=/certificates/acme.json"
+                - "--entrypoints.https.http.tls.options=secure-tls-options@docker"
+                - "--serverstransport.insecureSkipVerify=true"
                 - "--metrics.prometheus=true"
                 - "--metrics.prometheus.addRoutersLabels=true"
               ports:
                 - target: 80
                   published: 80
                   mode: host
+                  protocol: tcp
                 - target: 443
                   published: 443
                   mode: host
+                  protocol: tcp
               volumes:
                 - /var/run/docker.sock:/var/run/docker.sock:ro
                 - {{ data_root }}/traefik/certs:/certificates
@@ -72,15 +77,29 @@
                     - node.role == manager
                 restart_policy:
                   condition: on-failure
+                  delay: 5s
+                  max_attempts: 3
+                resources:
+                  limits:
+                    cpus: '1.0'
+                    memory: 1G
+                  reservations:
+                    cpus: '0.2'
+                    memory: 256M
                 labels:
+                  # Basic Dashboard Routing
                   - "traefik.enable=true"
                   - "traefik.http.routers.traefik.rule=Host(`traefik.{{ domain }}`)"
                   - "traefik.http.routers.traefik.entrypoints=https"
                   - "traefik.http.routers.traefik.tls=true"
                   - "traefik.http.routers.traefik.tls.certresolver=le"
                   - "traefik.http.routers.traefik.service=api@internal"
+                  - "traefik.http.routers.traefik.middlewares=security-headers,ratelimit"
                   - "traefik.http.services.traefik-svc.loadbalancer.server.port=8080"
                   - "traefik.swarm.network=proxy_public"
+                  # Secure TLS Definition
+                  - "traefik.tls.options.secure-tls-options.minversion=VersionTLS12"
+                  - "traefik.tls.options.secure-tls-options.ciphersuites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256"
               healthcheck:
                 test: ["CMD", "traefik", "healthcheck", "--ping"]
                 interval: 30s
@@ -172,14 +191,16 @@
                   # Rate limiting
                   - "traefik.http.middlewares.ratelimit.ratelimit.average=100"
                   - "traefik.http.middlewares.ratelimit.ratelimit.burst=50"
-                  # Security headers
-                  - "traefik.http.middlewares.security-headers.headers.stsSeconds=31536000"
-                  - "traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true"
-                  - "traefik.http.middlewares.security-headers.headers.stsPreload=true"
-                  - "traefik.http.middlewares.security-headers.headers.contentTypeNosniff=true"
-                  - "traefik.http.middlewares.security-headers.headers.browserXssFilter=true"
-                  - "traefik.http.middlewares.security-headers.headers.referrerPolicy=same-origin"
-                  - "traefik.http.middlewares.security-headers.headers.frameDeny=true"
+                  # Security headers (Chuẩn bảo mật Enterprise)
+                  - "traefik.http.middlewares.security-headers.headers.framedeny=true"
+                  - "traefik.http.middlewares.security-headers.headers.browserxssfilter=true"
+                  - "traefik.http.middlewares.security-headers.headers.contenttypenosniff=true"
+                  - "traefik.http.middlewares.security-headers.headers.stsseconds=31536000"
+                  - "traefik.http.middlewares.security-headers.headers.stsincludesubdomains=true"
+                  - "traefik.http.middlewares.security-headers.headers.stspreload=true"
+                  - "traefik.http.middlewares.security-headers.headers.referrerpolicy=strict-origin-when-cross-origin"
+                  - "traefik.http.middlewares.security-headers.headers.permissionspolicy=geolocation=(), microphone=(), camera=()"
+                  - "traefik.http.middlewares.security-headers.headers.contentsecuritypolicy=default-src 'self' 'unsafe-inline' 'unsafe-eval' data:;"
                   - "traefik.enable=true"
                   - "traefik.swarm.network=proxy_public"
 
