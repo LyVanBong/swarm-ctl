@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   version:
@@ -92,6 +93,7 @@ jobs:
         with:
           name: swarm-ctl-${{ matrix.suffix }}
           path: swarm-ctl-${{ matrix.suffix }}
+          retention-days: 1
 
   release:
     name: Create Release
@@ -111,7 +113,14 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         with:
           tag_name: ${{ needs.version.outputs.tag }}
-          name: "Swarm-CTL ${{ needs.version.outputs.tag }}"
+          name: ${{ needs.version.outputs.tag }}
           files: artifacts/*
           generate_release_notes: true
           draft: false
+
+      - name: Cleanup Action Artifacts Storage
+        if: always()
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            swarm-ctl-*
