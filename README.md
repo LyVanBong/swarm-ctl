@@ -42,7 +42,9 @@ swarm-ctl dashboard
 
 ## 💻 Yêu cầu Hệ thống (System Requirements)
 
-Để chạy trơn tru kiến trúc Cluster chuẩn, bạn cần chuẩn bị server với hệ điều hành **Ubuntu 20.04+** hoặc **Debian 11+** có mở SSH Port 22:
+Để chạy trơn tru kiến trúc Cluster chuẩn, bạn cần thuê các Server/VPS **"Trắng tinh"** (Chưa cài đặt gì cả ngoài Hệ Điều Hành là **Ubuntu 20.04+** hoặc **Debian 11+** có mở SSH Port 22).
+
+🚨 **ĐẶC BIỆT LƯU Ý:** BẠN KHÔNG CẦN (VÀ KHÔNG NÊN) TỰ CÀI DOCKER HAY DOCKER SWARM. Chỉ cần cấp mật khẩu Root để Tool đăng nhập cắm cờ vào, `swarm-ctl` sẽ tự động tải các gói Docker, tự động setup Mạng Ảo, tự chỉ định Leader hoàn toàn 100%. Mọi thứ cứ để công cụ tự lo!
 
 ### 1. Master/Manager Node (Khuyên dùng tối thiểu 1 máy)
 Máy chứa Database, Monitoring và điều khiển Swarm.
@@ -57,7 +59,11 @@ Dành cho ứng dụng Backend, Web, API để phân tán tải.
 
 ### 3. Máy cá nhân chạy lệnh (`swarm-ctl`)
 - Linux / macOS / Windows.
-- Khóa SSH (SSH Key) có quyền đăng nhập vào các Servers.
+- Phải có Khóa SSH (SSH Key) để tool có thể dùng nó làm chìa khóa vạn năng điểu khiển các Server an toàn. Nếu máy tính cá nhân của bạn chưa có, **Bắt buộc** phải sinh Khóa mới bằng cách mở Terminal / Powershell lên và gõ lệnh:
+  ```bash
+  ssh-keygen -t rsa -b 4096
+  ```
+  *(Cứ ấn Enter liên tục cho đến khi xong. Mặc định nó sẽ sinh ra 1 file tên là `~/.ssh/id_rsa`)*. Máy tự điều khiển sẽ dùng file này chọc thủng Server.
 
 ---
 
@@ -105,7 +111,10 @@ Tool phân chia Cluster thành **3 Tier (3 Lớp mạng)**. Ngay khi lệnh `clu
 - ♻️ **Zero-Downtime Deploy:** Hỗ trợ tính năng `service update` (khởi chạy bản mới trước khi tắt bản cũ) hoặc `secret rotate` (đổi mật khẩu database mà API đang kết nối không chết).
 - 📂 **Distributed Storage (GlusterFS):** Hỗ trợ `storage init-glusterfs` để đồng bộ ổ đĩa giữa 3 con Worker/Master chống cháy nổ vật lý.
 - 🗄️ **Cứu Hộ Dữ Liệu:** Lệnh `backup create/restore` tự động zip toàn thư mục phân quyền và tạo SQL Export cứu sống Cluster phút mốt.
-- 📝 **Nhật ký Kiểm Toán (Audit Trail):** Mọi lệnh can thiệp thay đổi (`node remove`, `service add`) đều ghi nhật ký tên PC, Thời gian vào file local `/audit.log` và loại bỏ hoàn toàn các Argument mang tính nhạy cảm như (Password/Key). 
+- 📝 **Nhật ký Kiểm Toán (Audit Trail):** Mọi lệnh can thiệp thay đổi (`node remove`, `service add`) đều ghi nhật ký tên PC, Thời gian vào file local `/audit.log` và che giấu tham số nhạy cảm. 
+- 📊 **Giám Sát Toàn Cảnh (Real-tim Monitoring):** 
+   - **Giám sát Nhanh (Qua Terminal):** Gõ lệnh `swarm-ctl dashboard` để mở ngay Bảng điện tử Live TUI. Giao diện này nháy đèn liên tục thời gian thực (Real-time), báo động tức thời xem Node nào tịt ngòi, Service nào đang sập mà không cần dùng trình duyệt.
+   - **Giám sát Sâu (Qua Web - Tự động cài sẵn):** Khối công cụ Prometheus & Grafana được cài sẵn sẽ liên tục cắm cảm biến vắt kiệt metrics của Máy chủ thật (CPU vật lý, RAM ảo) cho tới máy chủ chứa (Từng Container đang cắn bao nhiêu IOPS). Tất cả dồn về 1 mối siêu chi tiết.
 
 ---
 
