@@ -40,6 +40,7 @@
                 - "--providers.swarm=true"
                 - "--providers.swarm.exposedByDefault=false"
                 - "--providers.swarm.network=proxy_public"
+                - "--providers.swarm.endpoint=unix:///var/run/docker.sock"
                 - "--entrypoints.http.address=:80"
                 - "--entrypoints.https.address=:443"
                 - "--entrypoints.http.http.redirections.entrypoint.to=https"
@@ -61,8 +62,7 @@
                 - {{ data_root }}/traefik/certs:/certificates
               networks:
                 - proxy_public
-              environment:
-                - DOCKER_API_VERSION=1.44
+
 
               deploy:
                 mode: global
