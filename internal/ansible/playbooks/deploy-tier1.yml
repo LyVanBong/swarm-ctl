@@ -138,6 +138,13 @@
                 placement:
                   constraints:
                     - node.platform.os == linux
+                resources:
+                  limits:
+                    cpus: '0.5'
+                    memory: 512M
+                  reservations:
+                    cpus: '0.1'
+                    memory: 64M
 
             portainer:
               image: portainer/portainer-ce:2.21.5
@@ -147,9 +154,31 @@
               networks:
                 - portainer_agent
                 - proxy_public
+              logging:
+                driver: "json-file"
+                options:
+                  max-size: "10m"
+                  max-file: "3"
               deploy:
                 mode: replicated
                 replicas: 1
+                restart_policy:
+                  condition: on-failure
+                  delay: 5s
+                  max_attempts: 3
+                  window: 120s
+                update_config:
+                  parallelism: 1
+                  delay: 10s
+                  order: start-first
+                  failure_action: rollback
+                resources:
+                  limits:
+                    cpus: '0.5'
+                    memory: 512M
+                  reservations:
+                    cpus: '0.1'
+                    memory: 128M
                 placement:
                   constraints:
                     - node.role == manager
@@ -158,7 +187,9 @@
                   - "traefik.http.routers.portainer.rule=Host(`portainer.{{ domain }}`)"
                   - "traefik.http.routers.portainer.entrypoints=https"
                   - "traefik.http.routers.portainer.tls.certresolver=le"
-                  - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+                  - "traefik.http.routers.portainer.middlewares=security-headers,ratelimit"
+                  - "traefik.http.services.portainer.loadbalancer.server.port=9443"
+                  - "traefik.http.services.portainer.loadbalancer.server.scheme=https"
                   - "traefik.swarm.network=proxy_public"
 
           networks:
