@@ -29,6 +29,7 @@ var (
 	nodeAddUser    string
 	nodeAddRole    string
 	nodeAddLabel   []string
+	nodeAddPass    string // Password root
 )
 
 var nodeAddCmd = &cobra.Command{
@@ -91,18 +92,31 @@ Ví dụ:
 
 		// ── Step 1: SSH Connectivity ──
 		fmt.Println(ui.RenderStep(1, totalSteps, steps[0]+"..."))
+		
+		// Tự động giải quyết nếu có --pass (Sao chép key sang tự động)
+		if nodeAddPass != "" {
+			fmt.Println("  Phát hiện cờ --pass, đang thực hiện sao chép SSH Key tự động... (sshpass)")
+			
+			// Kiểm tra và yêu cầu sshpass
+			_, err := exec.LookPath("sshpass")
+			if err != nil {
+				return fmt.Errorf("cần cài đặt 'sshpass' trên máy của bạn để dùng tính năng --pass. Vui lòng chạy: sudo apt install sshpass (Linux) hoặc brew install hudochenkov/sshpass/sshpass (Mac)")
+			}
+			
+			sshCopyCmd := fmt.Sprintf("sshpass -p '%s' ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", nodeAddPass, keyPath, sshUser, nodeAddIP)
+			exec.Command("sh", "-c", sshCopyCmd).Run()
+		}
+
 		if err := ssh.CheckConnectivity(nodeAddIP, sshUser, keyPath); err != nil {
 			return fmt.Errorf(`
 ❌ Không thể kết nối SSH tới %s
 
    Nguyên nhân có thể:
-   → SSH key không đúng hoặc chưa được copy lên server mới
-   → Server chưa bật SSH service
+   → Máy này chưa được Copy Key (Có thể cài tự động bằng cách thêm cờ: --pass "MatKhauMayChu")
+   → SSH key không đúng hoặc Server chưa bật SSH service
    → Firewall đang chặn port 22
 
-   Gợi ý:
-   → Copy SSH key: ssh-copy-id -i %s %s@%s
-   → Test thủ công: ssh -i %s %s@%s`, nodeAddIP, keyPath, sshUser, nodeAddIP, keyPath, sshUser, nodeAddIP)
+   Gợi ý Test thủ công: ssh -i %s %s@%s`, nodeAddIP, keyPath, sshUser, nodeAddIP)
 		}
 		fmt.Println(ui.RenderSuccess("Kết nối SSH thành công"))
 
@@ -445,6 +459,7 @@ func init() {
 	nodeAddCmd.Flags().StringVarP(&nodeAddUser, "user", "u", "", "SSH username (mặc định: user của cluster)")
 	nodeAddCmd.Flags().StringVarP(&nodeAddRole, "role", "r", "worker", "Node role: worker | manager")
 	nodeAddCmd.Flags().StringArrayVarP(&nodeAddLabel, "label", "l", []string{}, "Node labels (vd: tier=app)")
+	nodeAddCmd.Flags().StringVarP(&nodeAddPass, "pass", "p", "", "Mật khẩu máy chủ (Dùng để tự động Copy SSH Key một lần duy nhất)")
 	nodeAddCmd.MarkFlagRequired("ip")
 
 	// node remove flags
