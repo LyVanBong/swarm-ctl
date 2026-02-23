@@ -175,9 +175,17 @@ swarm-ctl
 
 ### Máy chạy swarm-ctl
 - Linux/macOS/Windows
-- SSH key có quyền truy cập các nodes
-- Ansible (tự động cài nếu chưa có)
+- SSH key có quyền truy cập
 
+## 📚 Documentation (Runbooks)
+
+Để vận hành hệ thống trơn tru và chuyên nghiệp trong production, `swarm-ctl` cung cấp các Runbooks tài liệu (Khắc phục sự cố theo từng bước):
+
+* [Disaster Recovery & Backup](docs/runbooks/01-disaster-recovery.md) - Cứu hoả khi sập DB, sập toàn bộ Master, thao tác với Backup/Restore.
+* [Node Management](docs/runbooks/02-node-management.md) - Cách Add thêm máy ảo, thu hẹp ứng dụng, cách cập nhật Kernel Linux cho máy Worker Node an toàn.
+* [Service Updates](docs/runbooks/03-service-updates.md) - Cách deploy lại 1 app, tự động đổi mật khẩu Database (zero-downtime rotation), rollback phiên bản bị lỗi.
+
+## 📦 Công nghệ sử dụng
 ### Các nodes trong cluster
 - Ubuntu 20.04+ hoặc Debian 11+
 - SSH port 22 mở
