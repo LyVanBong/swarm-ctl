@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -173,4 +174,46 @@ func loadPrivateKey(keyPath string) (gossh.Signer, error) {
 		return nil, fmt.Errorf("invalid SSH private key: %w", err)
 	}
 	return signer, nil
+}
+
+// ExpandKeyPath chuyển đổi đường dẫn chứa dâu ~ thành Absolute Path
+func ExpandKeyPath(keyPath string) (string, error) {
+	if strings.HasPrefix(keyPath, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(home, keyPath[2:]), nil
+	}
+	return keyPath, nil
+}
+
+// EnsureSSHKeyExists kiểm tra xem file SSH key có tồn tại hay không. Nếu không, nó sẽ tự động sinh mã khóa Ed25519.
+func EnsureSSHKeyExists(keyPath string) (string, error) {
+	expandedPath, err := ExpandKeyPath(keyPath)
+	if err != nil {
+		return keyPath, err
+	}
+
+	// Kiểm tra xem File đã tồn tại hay chưa
+	if _, err := os.Stat(expandedPath); os.IsNotExist(err) {
+		// Đảm bảo là thư mục cha chứa File đã tạo ra
+		dir := filepath.Dir(expandedPath)
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return keyPath, fmt.Errorf("không thể tạo thư mục %s: %w", dir, err)
+		}
+
+		fmt.Printf("Mã khóa SSH chưa tồn tại tại: %s\n", keyPath)
+		fmt.Println("Đang tự động sinh khóa Ed25519 bảo mật cao...")
+
+		// Chạy lệnh ssh-keygen
+		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-f", expandedPath, "-N", "", "-C", "swarm-ctl-auto")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return keyPath, fmt.Errorf("lỗi sinh SSH key: %w\n%s", err, output)
+		}
+		fmt.Println("Đã sinh SSH Key Ed25519 thành công!")
+	}
+	
+	return expandedPath, nil
 }

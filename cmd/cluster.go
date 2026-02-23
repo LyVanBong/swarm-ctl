@@ -63,6 +63,13 @@ Ví dụ:
 			return fmt.Errorf("--domain là bắt buộc")
 		}
 
+		// ── Step 1.5: Đảm bảo đã có Khóa SSH (Tự sinh nếu thiếu) ──
+		expandedKeyPath, err := ssh.EnsureSSHKeyExists(initSSHKey)
+		if err != nil {
+			return fmt.Errorf("lỗi khởi tạo SSH key: %w", err)
+		}
+		initSSHKey = expandedKeyPath
+
 		fmt.Println(ui.SectionHeader.Render(" THÔNG TIN CLUSTER "))
 		fmt.Printf("  Master IP  : %s\n", ui.Info.Render(initMasterIP))
 		fmt.Printf("  Domain     : %s\n", ui.Info.Render(initDomain))
@@ -246,7 +253,7 @@ var clusterUpgradeCmd = &cobra.Command{
 func init() {
 	// cluster init flags
 	clusterInitCmd.Flags().StringVarP(&initMasterIP, "master", "m", "", "IP address của master node (bắt buộc)")
-	clusterInitCmd.Flags().StringVarP(&initSSHKey, "key", "k", "~/.ssh/id_rsa", "Đường dẫn SSH private key")
+	clusterInitCmd.Flags().StringVarP(&initSSHKey, "key", "k", "~/.ssh/id_ed25519", "Đường dẫn SSH private key")
 	clusterInitCmd.Flags().StringVarP(&initSSHUser, "user", "u", "root", "SSH username")
 	clusterInitCmd.Flags().StringVarP(&initDomain, "domain", "d", "", "Domain chính của cluster (bắt buộc)")
 	clusterInitCmd.Flags().StringVar(&initDataRoot, "data-root", "/opt/data", "Thư mục lưu dữ liệu")

@@ -59,11 +59,7 @@ Dành cho ứng dụng Backend, Web, API để phân tán tải.
 
 ### 3. Máy cá nhân chạy lệnh (`swarm-ctl`)
 - Linux / macOS / Windows.
-- Phải có Khóa SSH (SSH Key) để tool có thể dùng nó làm chìa khóa vạn năng điểu khiển các Server an toàn. Nếu máy tính cá nhân của bạn chưa có, **Bắt buộc** phải sinh Khóa mới bằng cách mở Terminal / Powershell lên và gõ lệnh:
-  ```bash
-  ssh-keygen -t rsa -b 4096
-  ```
-  *(Cứ ấn Enter liên tục cho đến khi xong. Mặc định nó sẽ sinh ra 1 file tên là `~/.ssh/id_rsa`)*. Máy tự điều khiển sẽ dùng file này chọc thủng Server.
+- Tool yêu cầu bộ điều khiển phải có Khóa mã hóa SSH để xâm nhập các Server qua ngầm. Tuy nhiên, **BẠN KHÔNG CẦN LÀM GÌ CẢ**. Nếu máy tính bạn chưa có Khóa, công cụ `swarm-ctl` sẽ tự động sinh ra một chiếc chìa khóa `Ed25519` (chuẩn bảo mật quân đội) đặt tại đường dẫn `~/.ssh/id_ed25519` cho bạn.
 
 ---
 
@@ -143,10 +139,10 @@ Khi chạy các lệnh của `swarm-ctl`, có một vài tham số bắt buộc.
    * **Lấy ở đâu:** Đăng nhập vào bảng điều khiển (Dashboard) của nhà cung cấp Server (AWS EC2, DigitalOcean Droplet, Linode) và copy địa chỉ Public IP (vd: `103.25.x.x`).
 
 2. **`--key` (Đường dẫn tới SSH Private Key)**
-   * **Nó là gì:** Thay vì nhập mật khẩu dài ngoằng để kết nối Server, Linux dùng tệp tin "Chìa khóa mã hóa" (thường tên là `id_rsa` hoặc `id_ed25519`).
-   * **Lấy ở đâu:** Trên máy tính cá nhân của bạn, key thường nằm ở thư mục ẩn:
-     * Mac/Linux: `~/.ssh/id_rsa`
-     * Windows: `C:\Users\TenBan\.ssh\id_rsa`
+   * **Nó là gì:** Thay vì nhập mật khẩu dài ngoằng để kết nối Server, Linux dùng tệp tin "Chìa khóa mã hóa" (Thường tool sẽ ưu tiên tự sinh loại `id_ed25519` vì nó tân tiến và an toàn nhất hiện nay, thay thế cho chuẩn `id_rsa` cũ kĩ).
+   * **Lấy ở đâu:** Công cụ tự sinh cho bạn và giấu ở:
+     * Mac/Linux: `~/.ssh/id_ed25519`
+     * Windows: `C:\Users\TenBan\.ssh\id_ed25519`
 
 3. **`--pass` (Tự động Copy Khóa SSH)**
    * **Nó là gì:** Nếu bạn thuê Máy ảo mới toanh, bạn thường chỉ nhận được `Root Password`. Nếu không truyền cờ `--pass`, bạn phải cài SSH thủ công bằng lệnh `ssh-copy-id`. Với cờ `--pass "MậtKhẩu"`, Tool sẽ thay bạn làm công việc cực nhọc đó một cách hoàn toàn tự động!

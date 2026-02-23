@@ -66,6 +66,12 @@ Ví dụ:
 		if keyPath == "" {
 			keyPath = cluster.SSHKey
 		}
+		
+		expandedKeyPath, err := ssh.EnsureSSHKeyExists(keyPath)
+		if err != nil {
+			return fmt.Errorf("lỗi kiểm tra SSH key: %w", err)
+		}
+		keyPath = expandedKeyPath
 		sshUser := nodeAddUser
 		if sshUser == "" {
 			sshUser = cluster.SSHUser
