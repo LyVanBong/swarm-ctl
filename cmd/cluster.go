@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -85,10 +86,33 @@ Ví dụ:
 		if initPass != "" {
 			fmt.Println("  Phát hiện cờ --pass, đang thực hiện sao chép SSH Key tự động... (sshpass)")
 			
-			// Kiểm tra và yêu cầu sshpass
+			// Kiểm tra và cài đặt sshpass nếu không có sẵn
 			_, err := exec.LookPath("sshpass")
 			if err != nil {
-				return fmt.Errorf("cần cài đặt 'sshpass' trên máy của bạn để dùng tính năng --pass. Vui lòng chạy: sudo apt install sshpass")
+				if runtime.GOOS == "windows" {
+					return fmt.Errorf("cờ --pass sử dụng thư viện sshpass không khả dụng trực tiếp trên Windows (CMD/PowerShell). Vui lòng dùng WSL (Windows Subsystem for Linux) hoặc tự sinh và gửi khóa SSH.")
+				}
+				
+				fmt.Println(ui.RenderWarning("Không tìm thấy lệnh 'sshpass'. Đang tự động cài đặt cho bạn..."))
+				installCmd := ""
+				
+				// Phán đoán HĐH
+				if _, err := exec.LookPath("apt-get"); err == nil {
+					installCmd = "sudo apt-get update && sudo apt-get install -y sshpass"
+				} else if _, err := exec.LookPath("yum"); err == nil {
+					installCmd = "sudo yum install -y sshpass"
+				} else if _, err := exec.LookPath("brew"); err == nil {
+					installCmd = "brew install hudochenkov/sshpass/sshpass"
+				}
+				
+				if installCmd != "" {
+					exec.Command("sh", "-c", installCmd).Run()
+				}
+				
+				// Kiểm tra lại sau cài
+				if _, err := exec.LookPath("sshpass"); err != nil {
+					return fmt.Errorf("cần cài đặt thư viện 'sshpass' trên máy của bạn để dùng tính năng --pass. Vui lòng chạy thủ công: sudo apt install sshpass (hoặc tương đương tuỳ hệ điều hành)")
+				}
 			}
 			
 			sshCopyCmd := fmt.Sprintf("sshpass -p '%s' ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", initPass, initSSHKey, initSSHUser, initMasterIP)
