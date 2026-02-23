@@ -126,11 +126,11 @@ Ví dụ:
 				if _, err := exec.LookPath("sshpass"); err != nil {
 					fmt.Println(ui.RenderWarning("Cảnh báo: Không thể tự động cài 'sshpass'. Hãy chạy thủ công (vd: sudo apt install sshpass) hoặc copy SSH key bằng tay:\n  ssh-copy-id -i " + keyPath + " " + sshUser + "@" + nodeAddIP))
 				} else {
-					sshCopyCmd := fmt.Sprintf("sshpass -p '%s' ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", nodeAddPass, keyPath, sshUser, nodeAddIP)
+					sshCopyCmd := fmt.Sprintf("export SSHPASS='%s' && sshpass -e ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", nodeAddPass, keyPath, sshUser, nodeAddIP)
 					exec.Command("sh", "-c", sshCopyCmd).Run()
 				}
 			} else {
-				sshCopyCmd := fmt.Sprintf("sshpass -p '%s' ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", nodeAddPass, keyPath, sshUser, nodeAddIP)
+				sshCopyCmd := fmt.Sprintf("export SSHPASS='%s' && sshpass -e ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", nodeAddPass, keyPath, sshUser, nodeAddIP)
 				exec.Command("sh", "-c", sshCopyCmd).Run()
 			}
 		}

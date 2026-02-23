@@ -130,11 +130,13 @@ Ví dụ:
 				if _, err := exec.LookPath("sshpass"); err != nil {
 					fmt.Println(ui.RenderWarning("Cảnh báo: Không thể tự động cài 'sshpass'. Hãy chạy thủ công (vd: sudo apt install sshpass) hoặc copy SSH key bằng tay:\n  ssh-copy-id -i " + initSSHKey + " " + initSSHUser + "@" + initMasterIP))
 				} else {
-					sshCopyCmd := fmt.Sprintf("sshpass -p '%s' ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", initPass, initSSHKey, initSSHUser, initMasterIP)
+					// Sử dụng biến môi trường SSHPASS và cờ -e để tránh lộ mật khẩu trong danh sách tiến trình (ps aux)
+					sshCopyCmd := fmt.Sprintf("export SSHPASS='%s' && sshpass -e ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", initPass, initSSHKey, initSSHUser, initMasterIP)
 					exec.Command("sh", "-c", sshCopyCmd).Run()
 				}
 			} else {
-				sshCopyCmd := fmt.Sprintf("sshpass -p '%s' ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", initPass, initSSHKey, initSSHUser, initMasterIP)
+				// Cùng cách bảo mật như trên
+				sshCopyCmd := fmt.Sprintf("export SSHPASS='%s' && sshpass -e ssh-copy-id -o StrictHostKeyChecking=no -i %s %s@%s > /dev/null 2>&1", initPass, initSSHKey, initSSHUser, initMasterIP)
 				exec.Command("sh", "-c", sshCopyCmd).Run()
 			}
 		}
