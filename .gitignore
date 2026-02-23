@@ -21,6 +21,7 @@ vendor/
 config.local.yml
 .env
 .env.*
+*.log
 
 # IDE
 .vscode/
