@@ -56,15 +56,16 @@ swarm-ctl node add --ip 103.11.22.W2 --role worker --pass "KhoaBomVuW2_123"
 
 ## 🟢 BƯỚC 4: TRIỂN KHAI VŨ KHÍ NẶNG (APPWRITE)
 
-Appwrite (Backend) sinh ra 1 lúc hơn 20 cái Container nhỏ lẻ siêu phức tạp. Bạn không cần làm gì ngoài gõ:
+Giả thiết bạn đã đóng gói mã nguồn và cấu hình của Appwrite vào một App Bundle (thư mục `appwrite-bundle`). Bạn không cần làm gì ngoài gõ:
 
 ```bash
-swarm-ctl app install appwrite --domain api.softty.net
+cd /opt/products/
+swarm-ctl app deploy ./appwrite-bundle --name appwrite
 ```
 
 **Vì sao kịch bản này lại an toàn tuyệt đối?**
-Trong thiết kế ngầm (`Template`) của lệnh Cài đặt: Cơ sở dữ liệu MariaDB, Cấu hình File tĩnh đã bị "khoá còng số 8" (placement constraints) không cho chạy đi đâu ngoài MÁY SỐ 1 MẸ để chống phân mảnh dữ liệu. 
-Còn lõi xử lý PHP `Appwrite Core API` thì được thả cho chạy nhảy trên Cả 3 máy (Tuỳ thằng nào Cổ RAM rảnh rỗi hơn thì ưu tiên ném qua thằng đấy chạy giùm). Người dùng truy cập `https://api.softty.net` sẽ được Traefik SSL rải thảm HTTP đưa tin vô mượt mà.
+Trong thiết kế ngầm (`docker-compose.yml`) của Bundle: Cơ sở dữ liệu MariaDB, Cấu hình File tĩnh đã bị "khoá còng số 8" (placement constraints) không cho chạy đi đâu ngoài MÁY SỐ 1 MẸ để chống phân mảnh dữ liệu. 
+Còn lõi xử lý API thì được thả cho chạy nhảy trên Cả 3 máy (Tuỳ thằng nào Cổ RAM rảnh rỗi hơn thì ưu tiên ném qua thằng đấy chạy giùm). Người dùng truy cập `https://api.softty.net` sẽ được Traefik SSL rải thảm HTTP đưa tin vô mượt mà.
 
 ---
 
