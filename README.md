@@ -104,6 +104,7 @@ Tool phân chia Cluster thành **3 Tier (3 Lớp mạng)**. Ngay khi lệnh `clu
 ## ✨ Tính Năng Nổi Bật (Ecosystem)
 
 - 🔒 **Zero-Trust Connection:** Không mở cổng Docker Socket ra Internet. Tool hoàn toàn ra lệnh máy chủ thông qua kênh SSH mã hóa nội bộ.
+- 🛡️ **Auto-Firewall (UFW):** Khi kết nạp Server, Tool tự đóng sập toàn bộ các Port (Cổng) truy cập trái phép của Hacker, chỉ chừa khe hở duy nhất cho 2 dịch vụ cốt lõi Web & SSH giao tiếp.
 - ♻️ **Zero-Downtime Deploy:** Hỗ trợ tính năng `service update` (khởi chạy bản mới trước khi tắt bản cũ) hoặc `secret rotate` (đổi mật khẩu database mà API đang kết nối không chết).
 - 📂 **Distributed Storage (GlusterFS):** Hỗ trợ `storage init-glusterfs` để đồng bộ ổ đĩa giữa 3 con Worker/Master chống cháy nổ vật lý.
 - 🗄️ **Cứu Hộ Dữ Liệu:** Lệnh `backup create/restore` tự động zip toàn thư mục phân quyền và tạo SQL Export cứu sống Cluster phút mốt.
@@ -165,7 +166,8 @@ swarm-ctl
 ├── cluster
 │   ├── init     --master IP --domain DOMAIN [--pass PASSWORD]
 │   ├── status
-│   └── upgrade
+│   ├── upgrade
+│   └── destroy  [--force]
 ├── node
 │   ├── add      --ip IP [--role worker|manager] [--pass PASSWORD]
 │   ├── remove   --ip IP [--force]
@@ -195,7 +197,8 @@ swarm-ctl
 │   ├── list
 ├── app
 │   ├── list     (Trình chiếu Marketplace)
-│   └── install  APP-ID [--domain DOMAIN] [--node HOSTNAME]
+│   ├── install  APP-ID [--domain DOMAIN] [--node HOSTNAME]
+│   └── remove   APP-ID
 ├── dashboard    (Live Terminal UI)
 ├── audit        (Xem nhật ký thao tác)
 └── version
