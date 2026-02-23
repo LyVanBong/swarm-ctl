@@ -92,11 +92,37 @@ func IsInstalled() bool {
 
 // InstallAnsible cài Ansible nếu chưa có
 func InstallAnsible() error {
-	// Kiểm tra pip3
-	if _, err := exec.LookPath("pip3"); err != nil {
-		return fmt.Errorf("pip3 not found — please install Python3")
+	fmt.Println("Đang tự động cài đặt Ansible...")
+	installCmd := ""
+
+	// Phán đoán HĐH
+	if _, err := exec.LookPath("apt-get"); err == nil {
+		// Update repository and install ansible via python3-pip or native apt?
+		// Ubuntu 20.04+ has standard ansible pkg
+		installCmd = "sudo apt-get update && sudo apt-get install -y ansible sshpass"
+	} else if _, err := exec.LookPath("yum"); err == nil {
+		installCmd = "sudo yum install -y epel-release && sudo yum install -y ansible sshpass"
+	} else if _, err := exec.LookPath("brew"); err == nil {
+		installCmd = "brew install ansible hudochenkov/sshpass/sshpass"
 	}
 
+	if installCmd != "" {
+		cmd := exec.Command("sh", "-c", installCmd)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err == nil {
+			return nil
+		}
+		// Fallback to pip3 if system package fail
+	}
+
+	// Kiểm tra pip3
+	if _, err := exec.LookPath("pip3"); err != nil {
+		fmt.Println("Không tìm thấy lệnh cài đặt tự động (apt/yum/brew) hoặc pip3. Vui lòng tự cài Ansible thủ công.")
+		return fmt.Errorf("không thể cài tự động Ansible")
+	}
+
+	fmt.Println("Đang chạy lệnh pip3 install ansible...")
 	cmd := exec.Command("pip3", "install", "ansible", "--quiet")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
