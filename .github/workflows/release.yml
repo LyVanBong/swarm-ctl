@@ -13,8 +13,43 @@ permissions:
   contents: write
 
 jobs:
+  version:
+    name: Generate Version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.compute.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute Next Version
+        id: compute
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/master" ]; then
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+            if [[ $LATEST_TAG =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              MAJOR="${BASH_REMATCH[1]}"
+              MINOR="${BASH_REMATCH[2]}"
+              PATCH="${BASH_REMATCH[3]}"
+              NEXT_TAG="v${MAJOR}.${MINOR}.$((PATCH+1))"
+            else
+              NEXT_TAG="v1.0.1"
+            fi
+            echo "Next Version is: $NEXT_TAG"
+            echo "tag=$NEXT_TAG" >> $GITHUB_OUTPUT
+            
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag $NEXT_TAG
+            git push origin $NEXT_TAG
+          else
+            echo "tag=pr-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          fi
+
   build:
     name: Build binaries
+    needs: version
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -39,15 +74,17 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+          cache: false
 
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
+          VERSION_TAG: ${{ needs.version.outputs.tag }}
         run: |
           go build \
-            -ldflags="-s -w -X github.com/LyVanBong/swarm-ctl/cmd.Version=${GITHUB_SHA::7} -X github.com/LyVanBong/swarm-ctl/cmd.BuildDate=$(date -u +%Y-%m-%d)" \
+            -ldflags="-s -w -X github.com/LyVanBong/swarm-ctl/cmd.Version=${VERSION_TAG} -X github.com/LyVanBong/swarm-ctl/cmd.BuildDate=$(date -u +%Y-%m-%d)" \
             -o swarm-ctl-${{ matrix.suffix }} .
 
       - name: Upload artifact
@@ -58,7 +95,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: build
+    needs: [version, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,8 +110,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         with:
-          tag_name: "release-${{ github.sha }}"
-          name: "Automated Release (${{ github.sha }})"
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: "Swarm-CTL ${{ needs.version.outputs.tag }}"
           files: artifacts/*
           generate_release_notes: true
           draft: false
