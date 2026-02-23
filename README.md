@@ -58,7 +58,7 @@ Dành cho ứng dụng Backend, Web, API để phân tán tải.
 *(Tất cả kết nối qua LAN Nội bộ Private IP để giảm độ trễ)*
 
 ### 3. Máy cá nhân chạy lệnh (`swarm-ctl`)
-- Linux / macOS / Windows.
+- Linux / macOS (Chỉ hỗ trợ môi trường Unix-like).
 - Tool yêu cầu bộ điều khiển phải có Khóa mã hóa SSH để xâm nhập các Server qua ngầm. Tuy nhiên, **BẠN KHÔNG CẦN LÀM GÌ CẢ**. Nếu máy tính bạn chưa có Khóa, công cụ `swarm-ctl` sẽ tự động sinh ra một chiếc chìa khóa `Ed25519` (chuẩn bảo mật quân đội) đặt tại đường dẫn `~/.ssh/id_ed25519` cho bạn.
 
 ---
@@ -141,9 +141,7 @@ Khi chạy các lệnh của `swarm-ctl`, có một vài tham số bắt buộc.
 
 2. **`--key` (Đường dẫn tới SSH Private Key)**
    * **Nó là gì:** Thay vì nhập mật khẩu dài ngoằng để kết nối Server, Linux dùng tệp tin "Chìa khóa mã hóa" (Thường tool sẽ ưu tiên tự sinh loại `id_ed25519` vì nó tân tiến và an toàn nhất hiện nay, thay thế cho chuẩn `id_rsa` cũ kĩ).
-   * **Lấy ở đâu:** Công cụ tự sinh cho bạn và giấu ở:
-     * Mac/Linux: `~/.ssh/id_ed25519`
-     * Windows: `C:\Users\TenBan\.ssh\id_ed25519`
+   * **Lấy ở đâu:** Công cụ tự sinh cho bạn và giấu ở thư mục: `~/.ssh/id_ed25519`
 
 3. **`--pass` (Tự động Copy Khóa SSH)**
    * **Nó là gì:** Nếu bạn thuê Máy ảo mới toanh, bạn thường chỉ nhận được `Root Password`. Nếu không truyền cờ `--pass`, bạn phải cài SSH thủ công bằng lệnh `ssh-copy-id`. Với cờ `--pass "MậtKhẩu"`, Tool sẽ thay bạn làm công việc cực nhọc đó một cách hoàn toàn tự động!
