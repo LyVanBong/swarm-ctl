@@ -61,6 +61,8 @@
                 - {{ data_root }}/traefik/certs:/certificates
               networks:
                 - proxy_public
+              environment:
+                - DOCKER_API_VERSION=1.44
 
               deploy:
                 mode: global
