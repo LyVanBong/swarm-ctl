@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/LyVanBong/swarm-ctl/internal/config"
@@ -235,9 +237,104 @@ Ví dụ:
 	},
 }
 
+// ──────────────────────────────────────────────
+// swarm-ctl secret sync
+// ──────────────────────────────────────────────
+var (
+	syncProject string
+	syncEnv     string
+)
+
+var secretSyncCmd = &cobra.Command{
+	Use:   "sync",
+	Short: "Đồng bộ biến môi trường từ Infisical vào Docker Secrets",
+	Long: `Lệnh này sẽ dùng Infisical CLI nội bộ để tải JSON variables và đẩy thẳng lên Swarm Secrets,
+bảo mật tuyệt đối không lưu ra file vật lý.
+
+Ví dụ:
+  swarm-ctl secret sync --project "proj_xyz" --env "prod"`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		cluster, err := cfg.GetCurrentCluster()
+		if err != nil {
+			return err
+		}
+
+		if syncProject == "" || syncEnv == "" {
+			return fmt.Errorf("cần cung cấp --project và --env")
+		}
+
+		fmt.Println(ui.Banner.Render("🔐 INFISICAL SYNC"))
+		fmt.Println()
+
+		client := ssh.NewClient(cluster.MasterIP, cluster.SSHUser, cluster.SSHKey)
+		if err := client.Connect(); err != nil {
+			return err
+		}
+		defer client.Close()
+
+		fmt.Println(ui.RenderStep(1, 3, "Tải biến môi trường từ Infisical..."))
+		
+		infisicalCmd := exec.Command("infisical", "export", "--projectId", syncProject, "--env", syncEnv, "--format", "json")
+		output, err := infisicalCmd.Output()
+		if err != nil {
+			return fmt.Errorf("lỗi tải dữ liệu từ infisical (bạn đã login infisical chưa?): %w", err)
+		}
+
+		var secrets []map[string]string
+		if err := json.Unmarshal(output, &secrets); err != nil {
+			// Thử cấu trúc map string string (Tùy phiên bản infisical)
+			var secretMap map[string]string
+			if err2 := json.Unmarshal(output, &secretMap); err2 != nil {
+				return fmt.Errorf("không thể parse JSON từ Infisical: %w", err)
+			}
+			// Chuyển về struct đồng nhất
+			for k, v := range secretMap {
+				secrets = append(secrets, map[string]string{"key": k, "value": v})
+			}
+		}
+
+		fmt.Println(ui.RenderStep(2, 3, fmt.Sprintf("Tìm thấy %d biến, đang bơm vào Swarm...", len(secrets))))
+
+		for _, s := range secrets {
+			key, value := s["key"], s["value"]
+			if key == "" { // Fallback if simple map was used
+				continue
+			}
+
+			// Kiểm tra xem secret đã tồn tại chưa
+			existsOutput, _ := client.Run(fmt.Sprintf("docker secret ls --filter name=^%s$ -q", key))
+			if strings.TrimSpace(existsOutput) != "" {
+				// Xóa cũ tạo mới
+				client.Run(fmt.Sprintf("docker secret rm %s", key))
+			}
+
+			// Tạo mới
+			_, err := client.Run(fmt.Sprintf("printf '%%s' '%s' | docker secret create %s -", strings.ReplaceAll(value, "'", "'\\''"), key))
+			if err != nil {
+				fmt.Println(ui.RenderWarning(fmt.Sprintf("Lỗi đẩy secret %s: %v", key, err)))
+			} else {
+				fmt.Println(ui.Muted.Render(fmt.Sprintf("  ↳ %s (Sync OK)", key)))
+			}
+		}
+
+		fmt.Println(ui.RenderStep(3, 3, "Hoàn tất!"))
+		fmt.Println(ui.RenderSuccess("Dữ liệu Infisical đã được bơm thành công vào Docker Swarm Secrets!"))
+
+		return nil
+	},
+}
+
 func init() {
 	secretCmd.AddCommand(secretAddCmd)
 	secretCmd.AddCommand(secretListCmd)
 	secretCmd.AddCommand(secretRemoveCmd)
 	secretCmd.AddCommand(secretRotateCmd)
+	
+	secretSyncCmd.Flags().StringVar(&syncProject, "project", "", "Infisical Project ID")
+	secretSyncCmd.Flags().StringVar(&syncEnv, "env", "prod", "Infisical Environment (dev, prod)")
+	secretCmd.AddCommand(secretSyncCmd)
 }

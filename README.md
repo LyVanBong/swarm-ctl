@@ -182,6 +182,7 @@ swarm-ctl
 │   ├── init     --master IP --domain DOMAIN [--pass PASSWORD]
 │   ├── status
 │   ├── upgrade
+│   ├── prune    (Dọn rác tự động toàn cụm)
 │   └── destroy  [--force]
 ├── node
 │   ├── add      --ip IP [--role worker|manager] [--pass PASSWORD]
@@ -201,7 +202,8 @@ swarm-ctl
 │   ├── add      NAME VALUE
 │   ├── list
 │   ├── remove   NAME
-│   └── rotate   NAME NEW-VALUE
+│   ├── rotate   NAME NEW-VALUE
+│   └── sync     --project ID --env ENV (Đồng bộ từ Infisical)
 ├── config
 │   ├── show                          # Xem toàn bộ cấu hình
 │   ├── keys                          # Liệt kê 23 config keys
@@ -216,7 +218,7 @@ swarm-ctl
 │   ├── restore  BACKUP-ID
 │   └── list
 ├── app
-│   └── deploy   THU_MUC_BUNDLE [--name SERVICE_NAME]
+│   └── deploy   THU_MUC_BUNDLE_HOAC_LINK_GITHUB [--name SERVICE_NAME]
 ├── dashboard    (Live Terminal UI)
 ├── audit        (Xem nhật ký thao tác)
 └── version

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LyVanBong/swarm-ctl/internal/alert"
 	"github.com/LyVanBong/swarm-ctl/internal/config"
 	"github.com/LyVanBong/swarm-ctl/internal/ssh"
 	"github.com/LyVanBong/swarm-ctl/internal/ui"
@@ -67,14 +68,14 @@ Ví dụ:
 		backupDir := fmt.Sprintf("%s/backups/%s", cluster.DataRoot, backupID)
 
 		// Tạo thư mục backup
-		fmt.Println(ui.RenderStep(1, 4, "Chuẩn bị thư mục backup..."))
+		fmt.Println(ui.RenderStep(1, 5, "Chuẩn bị thư mục backup..."))
 		if _, err := client.RunSudo(fmt.Sprintf("mkdir -p %s", backupDir)); err != nil {
 			return fmt.Errorf("không thể tạo thư mục backup: %w", err)
 		}
 		fmt.Println(ui.RenderSuccess(fmt.Sprintf("Backup dir: %s", backupDir)))
 
 		// Backup MariaDB nếu đang chạy
-		fmt.Println(ui.RenderStep(2, 4, "Backup databases..."))
+		fmt.Println(ui.RenderStep(2, 5, "Backup databases..."))
 		mariaDBContainerID, err := client.Run(
 			"docker ps --filter 'name=database_mariadb' -q 2>/dev/null | head -1")
 		if err == nil && strings.TrimSpace(mariaDBContainerID) != "" {
@@ -106,8 +107,36 @@ Ví dụ:
 			}
 		}
 
+		// Backup PostgreSQL
+		fmt.Println(ui.RenderStep(3, 5, "Backup PostgreSQL..."))
+		postgresContainerIDs, err := client.Run("docker ps --filter 'ancestor=postgres' --filter 'ancestor=postgres:15-alpine' --filter 'ancestor=postgres:16-alpine' -q 2>/dev/null")
+		if err == nil && strings.TrimSpace(postgresContainerIDs) != "" {
+			ids := strings.Split(strings.TrimSpace(postgresContainerIDs), "\n")
+			for i, containerID := range ids {
+				containerID = strings.TrimSpace(containerID)
+				if containerID == "" {
+					continue
+				}
+				// Lấy db user
+				dbUser, _ := client.Run(fmt.Sprintf(`docker inspect -f '{{range .Config.Env}}{{if eq (index (split "=" .) 0) "POSTGRES_USER"}}{{index (split "=" .) 1}}{{end}}{{end}}' %s`, containerID))
+				dbUser = strings.TrimSpace(dbUser)
+				if dbUser == "" {
+					dbUser = "postgres"
+				}
+
+				dumpCmd := fmt.Sprintf("docker exec %s pg_dumpall -U %s 2>/dev/null > %s/postgres-%d.sql", containerID, dbUser, backupDir, i)
+				if _, err := client.RunSudo(dumpCmd); err != nil {
+					fmt.Println(ui.RenderWarning(fmt.Sprintf("PostgreSQL (%s) backup thất bại: %s", containerID, err.Error())))
+				} else {
+					fmt.Println(ui.RenderSuccess(fmt.Sprintf("PostgreSQL (%s) backup OK", containerID)))
+				}
+			}
+		} else {
+			fmt.Println(ui.Muted.Render("  PostgreSQL không chạy — bỏ qua"))
+		}
+
 		// Backup volumes/data
-		fmt.Println(ui.RenderStep(3, 4, "Backup volume data..."))
+		fmt.Println(ui.RenderStep(4, 5, "Backup volume data..."))
 		volumeBackupCmd := fmt.Sprintf(
 			"tar -czf %s/volumes.tar.gz -C %s --exclude=backups .",
 			backupDir, cluster.DataRoot)
@@ -118,7 +147,22 @@ Ví dụ:
 		}
 
 		// Lấy kích thước backup
-		fmt.Println(ui.RenderStep(4, 4, "Hoàn tất..."))
+		fmt.Println(ui.RenderStep(5, 5, "Đồng bộ Cloud & Hoàn tất..."))
+
+		// Sync to S3
+		if cluster.Backup.Endpoint != "" && cluster.Backup.Bucket != "" {
+			fmt.Println(ui.RenderInfo("Đang đồng bộ lên Cloud S3 (Rclone)..."))
+			rcloneCmd := fmt.Sprintf(`docker run --rm -v %s/backups:/data -e RCLONE_CONFIG_S3_TYPE=s3 -e RCLONE_CONFIG_S3_PROVIDER=Other -e RCLONE_CONFIG_S3_ENDPOINT=%s -e RCLONE_CONFIG_S3_ACCESS_KEY_ID=%s -e RCLONE_CONFIG_S3_SECRET_ACCESS_KEY=%s -e RCLONE_CONFIG_S3_REGION=%s rclone/rclone sync /data s3:%s`,
+				cluster.DataRoot, cluster.Backup.Endpoint, cluster.Backup.AccessKey, cluster.Backup.SecretKey, cluster.GetBackupRegion(), cluster.Backup.Bucket)
+
+			if _, err := client.RunSudo(rcloneCmd); err != nil {
+				fmt.Println(ui.RenderWarning("Đồng bộ S3 thất bại: " + err.Error()))
+			} else {
+				fmt.Println(ui.RenderSuccess("Đã đồng bộ lên S3 an toàn!"))
+			}
+		} else {
+			fmt.Println(ui.Muted.Render("  Bỏ qua đồng bộ S3 (Chưa cấu hình: swarm-ctl config set backup-s3-endpoint ...)"))
+		}
 		sizeOut, _ := client.Run(fmt.Sprintf("du -sh %s", backupDir))
 		size := strings.Fields(strings.TrimSpace(sizeOut))
 
@@ -138,6 +182,9 @@ Ví dụ:
 Restore bằng lệnh:
    swarm-ctl backup restore %s
 `, backupID, backupDir, backupSize, backupID)))
+
+		// Gửi thông báo Telegram
+		alert.SendTelegramMessage(cluster, fmt.Sprintf("💾 <b>Backup Hoàn Tất</b>\n\nID: <code>%s</code>\nDung lượng: <b>%s</b>\nĐồng bộ Cloud: Thành công", backupID, backupSize))
 
 		return nil
 	},

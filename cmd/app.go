@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/LyVanBong/swarm-ctl/internal/alert"
 	"github.com/LyVanBong/swarm-ctl/internal/config"
 	"github.com/LyVanBong/swarm-ctl/internal/ssh"
 	"github.com/LyVanBong/swarm-ctl/internal/ui"
@@ -23,6 +24,8 @@ var appCmd = &cobra.Command{
 
 var appName string
 var composeFiles []string
+var appInfisicalProject string
+var appInfisicalEnv string
 
 var appDeployCmd = &cobra.Command{
 	Use:   "deploy [FOLDER_PATH]",
@@ -31,6 +34,24 @@ var appDeployCmd = &cobra.Command{
 
 	RunE: func(cmd *cobra.Command, args []string) error {
 		folderPath := args[0]
+
+		// Xử lý GitOps Deploy
+		isGit := strings.HasPrefix(folderPath, "http://") || strings.HasPrefix(folderPath, "https://")
+		if isGit {
+			fmt.Println(ui.RenderStep(1, 4, fmt.Sprintf("Clone mã nguồn từ %s...", folderPath)))
+			tmpDir, err := os.MkdirTemp("", "swarm-ctl-git-*")
+			if err != nil {
+				return fmt.Errorf("không thể tạo thư mục tạm: %w", err)
+			}
+			defer os.RemoveAll(tmpDir)
+			
+			cloneCmd := exec.Command("git", "clone", folderPath, tmpDir)
+			if err := cloneCmd.Run(); err != nil {
+				return fmt.Errorf("git clone thất bại: %w", err)
+			}
+			folderPath = tmpDir
+		}
+
 		absPath, err := filepath.Abs(folderPath)
 		if err != nil {
 			return fmt.Errorf("đường dẫn không hợp lệ: %w", err)
@@ -43,7 +64,12 @@ var appDeployCmd = &cobra.Command{
 
 		// Xác định App Name
 		if appName == "" {
-			appName = filepath.Base(absPath)
+			if isGit {
+				parts := strings.Split(strings.TrimSuffix(args[0], ".git"), "/")
+				appName = parts[len(parts)-1]
+			} else {
+				appName = filepath.Base(absPath)
+			}
 			appName = strings.ToLower(appName)
 		}
 
@@ -60,8 +86,34 @@ var appDeployCmd = &cobra.Command{
 		fmt.Println(ui.Banner.Render(fmt.Sprintf("🚀 DEPLOYING APP BUNDLE: %s", appName)))
 		fmt.Printf("  Thư mục gốc: %s\n\n", ui.Info.Render(absPath))
 
+		stepIndex := 1
+		totalSteps := 3
+		if appInfisicalProject != "" {
+			totalSteps = 4
+		}
+
+		// Nhúng Infisical .env Ảo
+		if appInfisicalProject != "" {
+			fmt.Println(ui.RenderStep(stepIndex, totalSteps, "Tải biến môi trường Ảo từ Infisical..."))
+			stepIndex++
+			infisicalCmd := exec.Command("infisical", "export", "--projectId", appInfisicalProject, "--env", appInfisicalEnv, "--format", "dotenv")
+			envData, err := infisicalCmd.Output()
+			if err != nil {
+				return fmt.Errorf("lỗi kéo dữ liệu Infisical (bạn đã login chưa?): %w\n%s", err, err.(*exec.ExitError).Stderr)
+			}
+			
+			envPath := filepath.Join(absPath, ".env")
+			// Tạo file .env ẩn (Sẽ bị xóa ngay sau khi nén xong bằng defer)
+			if err := os.WriteFile(envPath, envData, 0600); err != nil {
+				return fmt.Errorf("lỗi tạo file .env tạm: %w", err)
+			}
+			defer os.Remove(envPath)
+			fmt.Println(ui.Muted.Render("  ↳ .env ảo đã được tạo (sẽ tự hủy sau khi nén)"))
+		}
+
 		// Kết nối SSH
-		fmt.Println(ui.RenderStep(1, 3, "Chuẩn bị nén Bundle (YML + Configs + Secrets)..."))
+		fmt.Println(ui.RenderStep(stepIndex, totalSteps, "Chuẩn bị nén Bundle (YML + Configs + Secrets)..."))
+		stepIndex++
 		tarFile := fmt.Sprintf("/tmp/%s-bundle.tar.gz", appName)
 		tarCmd := exec.Command("tar", "-czf", tarFile, "-C", absPath, ".")
 		if err := tarCmd.Run(); err != nil {
@@ -75,7 +127,8 @@ var appDeployCmd = &cobra.Command{
 		}
 		defer client.Close()
 
-		fmt.Println(ui.RenderStep(2, 3, "Bắn gói Bundle lên Server Master..."))
+		fmt.Println(ui.RenderStep(stepIndex, totalSteps, "Bắn gói Bundle lên Server Master..."))
+		stepIndex++
 		remoteDir := fmt.Sprintf("/opt/swarm-ctl-apps/%s", appName)
 		client.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
 
@@ -96,7 +149,7 @@ var appDeployCmd = &cobra.Command{
 			return fmt.Errorf("lỗi trong quá trình truyền file Bundle: %w", err)
 		}
 
-		fmt.Println(ui.RenderStep(3, 3, "Triển khai Docker Stack Native..."))
+		fmt.Println(ui.RenderStep(stepIndex, totalSteps, "Triển khai Docker Stack Native..."))
 		
 		envInjection := fmt.Sprintf("export DATA_ROOT='%s' && export DOMAIN='%s' && ", cluster.DataRoot, cluster.Domain)
 
@@ -150,6 +203,9 @@ var appDeployCmd = &cobra.Command{
       swarm-ctl service ls
 `, appName, appName)))
 
+		// Gửi thông báo Telegram
+		alert.SendTelegramMessage(cluster, fmt.Sprintf("🚀 <b>Deploy Thành Công</b>\n\nỨng dụng <code>%s</code> đã được cập nhật thành công lên Cụm!", appName))
+
 		return nil
 	},
 }
@@ -202,6 +258,8 @@ var appRemoveCmd = &cobra.Command{
 func init() {
 	appDeployCmd.Flags().StringVarP(&appName, "name", "n", "", "Tên Stack App (Vd: webapp, nginx)")
 	appDeployCmd.Flags().StringSliceVarP(&composeFiles, "compose-file", "c", []string{}, "Sử dụng các file compose override (Vd: -c docker-compose.prod.yml)")
+	appDeployCmd.Flags().StringVar(&appInfisicalProject, "infisical-project", "", "ID của Infisical Project để nhúng .env ảo")
+	appDeployCmd.Flags().StringVar(&appInfisicalEnv, "infisical-env", "prod", "Môi trường Infisical (dev/prod)")
 
 	appCmd.AddCommand(appDeployCmd)
 	appCmd.AddCommand(appRemoveCmd)
