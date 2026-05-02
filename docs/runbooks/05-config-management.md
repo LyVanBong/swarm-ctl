@@ -39,7 +39,7 @@ Kết quả mẫu:
 
   THÔNG TIN CHUNG
   Cluster Name : production
-  Master IP    : 81.17.101.123
+  Master IP    : 192.168.1.100
   Domain       : company.com
   SSH User     : root
   SSH Key      : /root/.ssh/id_ed25519
@@ -138,13 +138,13 @@ $ swarm-ctl config apply
 │ 📊 Portainer         : https://admin.company.com     │
 │                                              │
 │ Lưu ý: Hãy đảm bảo DNS đã trỏ subdomain    │
-│ mới về IP: 81.17.101.123                     │
+│ mới về IP: 192.168.1.100                     │
 ╰──────────────────────────────────────────────╯
 ```
 
 > **Quan trọng:** Sau khi đổi subdomain, bạn cần vào Cloudflare/Tenten tạo bản ghi DNS mới:
-> - Loại `A` | Host `dashboard` | Content `81.17.101.123`
-> - Loại `A` | Host `admin` | Content `81.17.101.123`
+> - Loại `A` | Host `dashboard` | Content `192.168.1.100`
+> - Loại `A` | Host `admin` | Content `192.168.1.100`
 
 ### 📌 Ví dụ 4: Cấu hình SSL cho môi trường Cloudflare Proxy
 
@@ -253,7 +253,7 @@ $ swarm-ctl config export cluster-prod.json
 Nội dung file `cluster-prod.yml`:
 ```yaml
 name: production
-master_ip: 81.17.101.123
+master_ip: 192.168.1.100
 ssh_key: /root/.ssh/id_ed25519
 ssh_user: root
 domain: company.com

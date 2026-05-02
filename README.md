@@ -219,6 +219,7 @@ swarm-ctl
 │   └── list
 ├── app
 │   └── deploy   THU_MUC_BUNDLE_HOAC_LINK_GITHUB [--name SERVICE_NAME]
+│                (Vd: swarm-ctl app deploy https://github.com/my-org/my-company-app.git)
 ├── dashboard    (Live Terminal UI)
 ├── audit        (Xem nhật ký thao tác)
 └── version
@@ -252,5 +253,5 @@ Dự án là của Cộng đồng! Bạn có ý tưởng phát triển tính nă
 Dự án được phân phối dưới giấy phép [MIT License](LICENSE). 
 
 <div align="center">
-<b>Được phát triển bền vững bởi <a href="https://github.com/LyVanBong">Ly Van Bong</a> & <a href="https://www.softty.net">Softty Net</a></b>
+<b>Được phát triển bền vững bởi <a href="https://github.com/LyVanBong">Ly Van Bong</a> & OpenSource Community</b>
 </div>

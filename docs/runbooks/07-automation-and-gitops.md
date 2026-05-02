@@ -18,7 +18,7 @@ Github cần biết địa chỉ IP của máy chủ và cần một chiếc "Ch
 3. Chuyển sang tab **Settings** ➔ **Secrets and variables** ➔ **Actions**.
 4. Bấm nút màu xanh **New repository secret**, lần lượt tạo 2 biến sau:
    *   **Tên biến 1:** `MASTER_IP`
-       **Giá trị:** Điền IP máy chủ của bạn (Vd: `81.17.101.123`)
+       **Giá trị:** Điền IP máy chủ của bạn (Vd: `192.168.1.100`)
    *   **Tên biến 2:** `SSH_PRIVATE_KEY`
        **Giá trị:** Dán toàn bộ nội dung file chìa khóa mà bạn vừa copy ở trên vào đây.
 
@@ -26,7 +26,7 @@ Github cần biết địa chỉ IP của máy chủ và cần một chiếc "Ch
 
 ## Bước 2: Nhúng File Kịch Bản (Workflow YAML) vào Mã Nguồn
 
-Trong dự án mã nguồn của bạn trên máy tính cá nhân (ví dụ thư mục code `softty-ecosystem`), hãy tạo một cấu trúc thư mục đặc biệt như sau: `.github/workflows/deploy.yml`.
+Trong dự án mã nguồn của bạn trên máy tính cá nhân (ví dụ thư mục code `my-awesome-app`), hãy tạo một cấu trúc thư mục đặc biệt như sau: `.github/workflows/deploy.yml`.
 
 Mở file `deploy.yml` lên và dán nguyên xi đoạn mã này vào:
 
