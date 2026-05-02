@@ -188,9 +188,8 @@ var appDeployCmd = &cobra.Command{
 			}
 		}
 
-		output, err := client.Run(deployScript)
-		if err != nil {
-			return fmt.Errorf("triển khai stack thất bại: %w\nOutput: %s", err, output)
+		if err := client.RunStream(deployScript, os.Stdout, os.Stderr); err != nil {
+			return fmt.Errorf("triển khai stack thất bại: %w", err)
 		}
 
 		fmt.Println()

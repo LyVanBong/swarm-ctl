@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -152,10 +153,10 @@ Ví dụ:
 		// Sync to S3
 		if cluster.Backup.Endpoint != "" && cluster.Backup.Bucket != "" {
 			fmt.Println(ui.RenderInfo("Đang đồng bộ lên Cloud S3 (Rclone)..."))
-			rcloneCmd := fmt.Sprintf(`docker run --rm -v %s/backups:/data -e RCLONE_CONFIG_S3_TYPE=s3 -e RCLONE_CONFIG_S3_PROVIDER=Other -e RCLONE_CONFIG_S3_ENDPOINT=%s -e RCLONE_CONFIG_S3_ACCESS_KEY_ID=%s -e RCLONE_CONFIG_S3_SECRET_ACCESS_KEY=%s -e RCLONE_CONFIG_S3_REGION=%s rclone/rclone sync /data s3:%s`,
+			rcloneCmd := fmt.Sprintf(`docker run --rm -i -v %s/backups:/data -e RCLONE_CONFIG_S3_TYPE=s3 -e RCLONE_CONFIG_S3_PROVIDER=Other -e RCLONE_CONFIG_S3_ENDPOINT=%s -e RCLONE_CONFIG_S3_ACCESS_KEY_ID=%s -e RCLONE_CONFIG_S3_SECRET_ACCESS_KEY=%s -e RCLONE_CONFIG_S3_REGION=%s rclone/rclone sync -P /data s3:%s`,
 				cluster.DataRoot, cluster.Backup.Endpoint, cluster.Backup.AccessKey, cluster.Backup.SecretKey, cluster.GetBackupRegion(), cluster.Backup.Bucket)
 
-			if _, err := client.RunSudo(rcloneCmd); err != nil {
+			if err := client.RunStream("sudo "+rcloneCmd, os.Stdout, os.Stderr); err != nil {
 				fmt.Println(ui.RenderWarning("Đồng bộ S3 thất bại: " + err.Error()))
 			} else {
 				fmt.Println(ui.RenderSuccess("Đã đồng bộ lên S3 an toàn!"))

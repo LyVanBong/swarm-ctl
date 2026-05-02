@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/LyVanBong/swarm-ctl/internal/alert"
 	"github.com/LyVanBong/swarm-ctl/internal/config"
@@ -47,9 +48,10 @@ giải phóng không gian ổ cứng, sau đó tự động hủy bỏ.`,
 		// Wait for completion (simple sleep or check)
 		client.Run("sleep 20")
 		
-		fmt.Println(ui.RenderStep(3, 3, "Đang dọn dẹp rác của chính tác vụ Pruner..."))
+		fmt.Println(ui.RenderStep(3, 3, "Đang dọn dẹp rác của chính tác vụ Pruner (Master Node)..."))
 		client.Run("docker service rm swarm-ctl-global-pruner")
-		client.Run("docker system prune -af --volumes") // Prune on manager explicitly as well
+		// Hiển thị tiến độ real-time
+		client.RunStream("docker system prune -af --volumes", os.Stdout, os.Stderr)
 
 		fmt.Println()
 		fmt.Println(ui.RenderSuccess("✅ Quá trình dọn rác Xuyên Lục Địa đã hoàn tất! Hàng chục GB đã được giải phóng."))
